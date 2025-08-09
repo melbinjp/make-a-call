@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#fefefe">
+    <meta name="color-scheme" content="light dark">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>📞 call.wecanuseai</title>
+    
+    <!-- Simple favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📞</text></svg>">
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">📞</div>
+            <h1>call.wecanuseai</h1>
+            <p>Instant voice calls worldwide</p>
+        </header>
+
+        <div class="call-setup" id="callSetup">
+            <div class="quick-actions">
+                <button id="quickCallBtn" class="btn-quick primary">
+                    <span class="icon">⚡</span>
+                    <span class="text">Quick Call</span>
+                    <span class="sub">Instant random room</span>
+                </button>
+            </div>
+
+            <div class="divider">
+                <span>or join specific room</span>
+            </div>
+
+            <div class="input-group">
+                <input type="tel" id="channelInput" placeholder="Enter room number" maxlength="10" inputmode="numeric">
+            </div>
+            
+            <div class="input-group compact">
+                <input type="text" id="nameInput" placeholder="Your name (optional)" maxlength="20">
+            </div>
+
+            <div class="settings-toggle" id="settingsToggle">
+                <span>⚙️ Settings</span>
+            </div>
+
+            <div class="settings-panel hidden" id="settingsPanel">
+                <div class="input-group">
+                    <label for="maxCallers">Max participants:</label>
+                    <select id="maxCallers">
+                        <option value="0">Unlimited</option>
+                        <option value="2" selected>2 people</option>
+                        <option value="5">5 people</option>
+                        <option value="10">10 people</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="buttons">
+                <button id="joinBtn" class="btn primary large">🚀 Join Room</button>
+            </div>
+        </div>
+
+        <div class="call-interface hidden" id="callInterface">
+            <div class="call-header">
+                <div class="room-info">
+                    <h2>Room <span id="currentChannel"></span></h2>
+                    <div class="status-indicator">
+                        <span class="status-dot" id="statusDot"></span>
+                        <span id="callStatus">Connecting...</span>
+                    </div>
+                </div>
+                <div class="participant-count">
+                    <span id="callerCount">1</span>/<span id="maxCallerCount">2</span>
+                    <small>👥</small>
+                </div>
+            </div>
+
+            <div class="share-section" id="shareSection">
+                <div class="share-quick">
+                    <button id="copyBtn" class="btn-share">
+                        <span class="icon">📋</span>
+                        <span class="text">Copy Room Link</span>
+                    </button>
+                    <input type="text" id="shareUrl" readonly class="hidden">
+                </div>
+            </div>
+
+            <div class="call-controls-main">
+                <button id="testToneBtn" class="btn-control test">
+                    <span class="icon">🎵</span>
+                    <span class="text">Test</span>
+                </button>
+                <button id="muteBtn" class="btn-control mute">
+                    <span class="icon">🎤</span>
+                    <span class="text">Mute</span>
+                </button>
+                <button id="hangupBtn" class="btn-control hangup">
+                    <span class="icon">📞</span>
+                    <span class="text">End Call</span>
+                </button>
+            </div>
+
+            <div class="participants-mini">
+                <div class="participants-header" id="participantsToggle">
+                    <span>👥 Participants (<span id="participantCountMini">1</span>)</span>
+                    <span class="toggle-icon">▼</span>
+                </div>
+                <ul id="participantsList" class="hidden"></ul>
+            </div>
+        </div>
+
+        <div class="help-section" id="helpSection">
+            <div class="help-toggle" id="helpToggle">
+                <span>❓ How it works</span>
+            </div>
+            <div class="help-content hidden" id="helpContent">
+                <div class="help-steps">
+                    <div class="step">
+                        <span class="step-icon">⚡</span>
+                        <span class="step-text">Tap "Quick Call" for instant room</span>
+                    </div>
+                    <div class="step">
+                        <span class="step-icon">📋</span>
+                        <span class="step-text">Share the link with others</span>
+                    </div>
+                    <div class="step">
+                        <span class="step-icon">🎤</span>
+                        <span class="step-text">Start talking instantly!</span>
+                    </div>
+                </div>
+                <div class="help-note">
+                    🔒 Calls are peer-to-peer encrypted
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+    
+    <!-- Haptic feedback for mobile -->
+    <script>
+        // Add haptic feedback for mobile interactions
+        if ('vibrate' in navigator) {
+            document.addEventListener('click', (e) => {
+                if (e.target.matches('button, .btn-quick, .btn-control, .btn-share')) {
+                    navigator.vibrate(50);
+                }
+            });
+        }
+    </script>
+</body>
+</html>
