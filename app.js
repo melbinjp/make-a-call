@@ -9,10 +9,20 @@ try {
     // Enable offline persistence and debugging
     database.goOnline();
     
-    // Test connection
+    // Test connection with authorization validation
     database.ref('.info/connected').on('value', (snapshot) => {
         if (snapshot.val() === true) {
-            console.log('✅ Firebase connected');
+            // Validate database access permissions
+            database.ref('test').once('value').then(() => {
+                console.log('✅ Firebase connected with valid permissions');
+            }).catch((error) => {
+                if (error.code === 'PERMISSION_DENIED') {
+                    console.error('❌ Firebase connected but access denied');
+                    alert('Database access denied. Check Firebase security rules.');
+                } else {
+                    console.log('✅ Firebase connected');
+                }
+            });
         } else {
             console.log('❌ Firebase disconnected');
         }
@@ -28,7 +38,11 @@ try {
             console.error('Cleanup failed:', cleanupError);
         }
     }
-    alert('Connection failed. Please refresh the page.');
+    console.error('Connection failed. Please refresh the page.');
+    // Use secure notification instead of alert
+    if (typeof showNotification === 'function') {
+        showNotification('Connection failed. Please refresh the page.', 'error');
+    }
 }
 
 class PhoneCall {
@@ -44,8 +58,13 @@ class PhoneCall {
             this.connectedPeers = new Set();
             this.maxCallers = 2;
             this.currentCallers = 0;
-            this.audioContext = null; // Reusable AudioContext
-            this.activeNotifications = new Set(); // Track notifications
+            this.isCallActive = false;
+            this.isSpeakerMode = true;
+            this.othersInCall = false;
+            this.audioContext = null;
+            this.activeNotifications = new Set();
+            this.dataChannels = new Map();
+            this.encryptionKey = null;
             
             this.initializeElements();
             this.setupEventListeners();
@@ -53,7 +72,7 @@ class PhoneCall {
             this.setupPageUnloadHandler();
         } catch (error) {
             console.error('PhoneCall initialization failed:', error);
-            this.showNotification('App initialization failed', 'error');
+            console.log('Available elements:', Object.keys(this.elements || {}));
         }
     }
 
@@ -78,43 +97,53 @@ class PhoneCall {
             shareUrl: document.getElementById('shareUrl'),
             copyBtn: document.getElementById('copyBtn'),
             startCallBtn: document.getElementById('startCallBtn'),
-            muteBtn: document.getElementById('muteBtn'),
+            speakerBtn: document.getElementById('speakerBtn'),
             endCallBtn: document.getElementById('endCallBtn'),
             participantsList: document.getElementById('participantsList'),
             participantsToggle: document.getElementById('participantsToggle'),
             helpToggle: document.getElementById('helpToggle'),
             helpContent: document.getElementById('helpContent'),
+            statusDot: document.getElementById('statusDot'),
             messagesList: document.getElementById('messagesList'),
             messageInput: document.getElementById('messageInput'),
             sendMessageBtn: document.getElementById('sendMessageBtn'),
             chatHistory: document.getElementById('chatHistory'),
             historyToggle: document.getElementById('historyToggle'),
             historyList: document.getElementById('historyList'),
-            roomTitle: document.getElementById('roomTitle')
+            roomTitle: document.getElementById('roomTitle'),
+            settingsPanel: document.getElementById('settingsPanel'),
+            settingsToggle: document.getElementById('settingsToggle')
         };
     }
 
     setupEventListeners() {
-        this.elements.quickCallBtn.addEventListener('click', () => this.quickCall());
-        this.elements.joinBtn.addEventListener('click', () => this.joinChannel());
-        this.elements.settingsToggle.addEventListener('click', () => this.toggleSettings());
-        this.elements.copyBtn.addEventListener('click', () => this.copyShareUrl());
-        this.elements.startCallBtn.addEventListener('click', () => this.startCall());
-        this.elements.muteBtn.addEventListener('click', () => this.toggleMute());
-        this.elements.endCallBtn.addEventListener('click', () => this.endCall());
-        this.elements.participantsToggle.addEventListener('click', () => this.toggleParticipants());
-        this.elements.helpToggle.addEventListener('click', () => this.toggleHelp());
-        this.elements.sendMessageBtn.addEventListener('click', () => this.sendMessage());
-        this.elements.historyToggle.addEventListener('click', () => this.toggleHistory());
-        this.elements.roomTitle.addEventListener('click', () => this.renameRoom());
+        // Core required elements
+        if (this.elements.quickCallBtn) this.elements.quickCallBtn.addEventListener('click', () => this.quickCall());
+        if (this.elements.joinBtn) this.elements.joinBtn.addEventListener('click', () => this.joinChannel());
         
-        this.elements.messageInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.sendMessage();
-        });
+        // Optional elements
+        if (this.elements.settingsToggle) this.elements.settingsToggle.addEventListener('click', () => this.toggleSettings());
+        if (this.elements.copyBtn) this.elements.copyBtn.addEventListener('click', () => this.copyShareUrl());
+        if (this.elements.startCallBtn) this.elements.startCallBtn.addEventListener('click', () => this.startCall());
+        if (this.elements.speakerBtn) this.elements.speakerBtn.addEventListener('click', () => this.toggleSpeaker());
+        if (this.elements.endCallBtn) this.elements.endCallBtn.addEventListener('click', () => this.endCall());
+        if (this.elements.participantsToggle) this.elements.participantsToggle.addEventListener('click', () => this.toggleParticipants());
+        if (this.elements.helpToggle) this.elements.helpToggle.addEventListener('click', () => this.toggleHelp());
+        if (this.elements.sendMessageBtn) this.elements.sendMessageBtn.addEventListener('click', () => this.sendMessage());
+        if (this.elements.historyToggle) this.elements.historyToggle.addEventListener('click', () => this.toggleHistory());
+        if (this.elements.roomTitle) this.elements.roomTitle.addEventListener('click', () => this.renameRoom());
         
-        this.elements.channelInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.joinChannel();
-        });
+        if (this.elements.messageInput) {
+            this.elements.messageInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') this.sendMessage();
+            });
+        }
+        
+        if (this.elements.channelInput) {
+            this.elements.channelInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') this.joinChannel();
+            });
+        }
         
         // Device-specific optimizations
         this.setupDeviceOptimizations();
@@ -233,13 +262,13 @@ class PhoneCall {
     }
     
     async startCall() {
-        if (this.isInCall) return;
+        if (this.isCallActive) return;
         
         try {
             await this.getUserMedia();
-            this.isInCall = true;
-            this.elements.startCallBtn.textContent = 'In Call';
-            this.elements.startCallBtn.classList.add('active');
+            this.isCallActive = true;
+            this.updateParticipantCallStatus();
+            this.updateButtonStates();
             this.updateStatus('Voice call active');
             this.showNotification('Call started', 'success');
         } catch (error) {
@@ -248,31 +277,89 @@ class PhoneCall {
         }
     }
     
+    toggleSpeaker() {
+        if (!this.isCallActive) {
+            this.showNotification('No active call', 'error');
+            return;
+        }
+        
+        this.isSpeakerMode = !this.isSpeakerMode;
+        
+        if (this.isSpeakerMode) {
+            this.elements.speakerBtn.textContent = '🔊 Speaker';
+            this.elements.speakerBtn.classList.remove('active');
+        } else {
+            this.elements.speakerBtn.textContent = '📱 Earpiece';
+            this.elements.speakerBtn.classList.add('active');
+        }
+        
+        this.applyAudioRouting();
+        
+        const mode = this.isSpeakerMode ? 'speaker' : 'earpiece';
+        this.showNotification(`Audio switched to ${mode}`, 'info');
+    }
+    
+    applyAudioRouting() {
+        const audioElements = document.querySelectorAll('audio');
+        audioElements.forEach(audio => {
+            if (this.isSpeakerMode) {
+                audio.volume = 1.0;
+            } else {
+                audio.volume = 0.8;
+            }
+        });
+    }
+    
+    updateButtonStates() {
+        if (this.isCallActive) {
+            this.elements.startCallBtn.textContent = '📞 In Call';
+            this.elements.startCallBtn.classList.add('active');
+            this.elements.endCallBtn.textContent = '📵 End Call';
+            this.elements.endCallBtn.classList.add('active');
+        } else if (this.othersInCall) {
+            this.elements.startCallBtn.textContent = '📞 Join Call';
+            this.elements.startCallBtn.classList.remove('active');
+            this.elements.endCallBtn.textContent = '🚪 Leave Room';
+            this.elements.endCallBtn.classList.remove('active');
+        } else {
+            this.elements.startCallBtn.textContent = '📞 Start Call';
+            this.elements.startCallBtn.classList.remove('active');
+            this.elements.endCallBtn.textContent = '🚪 Leave Room';
+            this.elements.endCallBtn.classList.remove('active');
+        }
+    }
+    
     endCall() {
-        if (!this.isInCall) {
+        if (!this.isCallActive) {
             this.leaveRoom();
             return;
         }
         
-        // Stop audio streams
+        // Stop audio streams but keep room connection
         if (this.localStream) {
             this.localStream.getTracks().forEach(track => track.stop());
             this.localStream = null;
         }
         
-        // Close peer connections
+        // Close peer connections but don't clear room data
         this.peerConnections.forEach(pc => pc.close());
         this.peerConnections.clear();
-        this.connectedPeers.clear();
         
         // Update UI
-        this.isInCall = false;
-        this.elements.startCallBtn.textContent = 'Start Call';
-        this.elements.startCallBtn.classList.remove('active');
-        this.elements.muteBtn.textContent = 'Mute';
-        this.elements.muteBtn.classList.remove('active');
+        this.isCallActive = false;
+        this.updateParticipantCallStatus();
+        this.elements.speakerBtn.textContent = '🔊 Speaker';
+        this.elements.speakerBtn.classList.remove('active');
+        this.isSpeakerMode = true;
+        this.updateButtonStates();
         this.updateStatus('Connected to room');
-        this.showNotification('Call ended', 'info');
+        this.showNotification('Left call - others continue', 'info');
+    }
+    
+    updateParticipantCallStatus() {
+        if (database && this.channel && this.userName) {
+            database.ref(`channels/${this.channel}/participants/${this.userName}/inCall`).set(this.isCallActive);
+        }
     }
     
     leaveRoom() {
@@ -301,8 +388,10 @@ class PhoneCall {
     }
     
     updateRoomTitle() {
-        const displayName = this.roomName || `Room ${this.channel}`;
-        this.elements.roomTitle.textContent = displayName;
+        if (this.elements.roomTitle) {
+            const displayName = this.roomName || `Room ${this.channel}`;
+            this.elements.roomTitle.textContent = displayName;
+        }
     }
     
     async requestRoomAccess(channelId, userName) {
@@ -442,8 +531,31 @@ class PhoneCall {
             } else if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
                 this.connectedPeers.delete(peerId);
                 this.removeRemoteAudio(peerId);
+                this.dataChannels.delete(peerId);
             }
             this.updateConnectionStatus();
+        };
+        
+        // Create DataChannel for messaging
+        const dataChannel = pc.createDataChannel('messages', {
+            ordered: true
+        });
+        
+        dataChannel.onopen = () => {
+            console.log('DataChannel opened with', peerId);
+            this.dataChannels.set(peerId, dataChannel);
+        };
+        
+        dataChannel.onmessage = (event) => {
+            this.handleP2PMessage(event.data, peerId);
+        };
+        
+        pc.ondatachannel = (event) => {
+            const channel = event.channel;
+            channel.onmessage = (event) => {
+                this.handleP2PMessage(event.data, peerId);
+            };
+            this.dataChannels.set(peerId, channel);
         };
         
         if (this.localStream) {
@@ -537,11 +649,15 @@ class PhoneCall {
     showReconnectionOption(session) {
         const reconnectDiv = document.createElement('div');
         reconnectDiv.className = 'reconnect-banner';
+        const displayName = session.roomName || session.channel;
         reconnectDiv.innerHTML = `
-            <p>🔄 Reconnect to Room ${this.escapeHtml(session.channel)}?</p>
-            <div class="reconnect-buttons">
-                <button id="reconnectBtn" class="btn primary">Reconnect</button>
-                <button id="dismissBtn" class="btn secondary">Dismiss</button>
+            <div class="dialog-content">
+                <h4>Welcome Back</h4>
+                <p>Continue your session in <span class="room-name">${this.escapeHtml(displayName)}</span></p>
+                <div class="reconnect-buttons">
+                    <button id="dismissBtn" class="btn-secondary">Start Fresh</button>
+                    <button id="reconnectBtn" class="btn-primary">Continue Session</button>
+                </div>
             </div>
         `;
         
@@ -558,10 +674,58 @@ class PhoneCall {
         });
     }
 
+    generateMemorableRoomId() {
+        const adjectives = ['blue', 'red', 'green', 'happy', 'sunny', 'cool', 'fast', 'smart', 'bright', 'calm'];
+        const nouns = ['cat', 'dog', 'bird', 'fish', 'tree', 'star', 'moon', 'rock', 'wave', 'fire'];
+        const numbers = Math.floor(Math.random() * 99) + 1;
+        
+        const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+        const noun = nouns[Math.floor(Math.random() * nouns.length)];
+        
+        return `${adj}-${noun}-${numbers}`;
+    }
+    
     async quickCall() {
-        const randomChannel = Math.random().toString(36).substring(2, 8).toUpperCase();
-        this.elements.channelInput.value = randomChannel;
-        await this.joinChannel();
+        const userName = this.elements.nameInput.value.trim();
+        
+        if (!userName) {
+            this.showNotification('Please enter your name first', 'error');
+            this.elements.nameInput.focus();
+            return;
+        }
+        
+        const memorableId = this.generateMemorableRoomId();
+        this.elements.channelInput.value = memorableId;
+        this.maxCallers = parseInt(this.elements.maxCallers.value);
+        
+        // Check Firebase connection
+        const isConnected = await this.checkFirebaseConnection();
+        if (!isConnected) {
+            this.showNotification('Connection failed. Please try again.', 'error');
+            return;
+        }
+        
+        try {
+            this.channel = memorableId;
+            this.userName = userName;
+            this.isInCall = false;
+            
+            // Create room immediately
+            this.setupSignaling();
+            this.setupAccessRequestListener();
+            this.showCallInterface();
+            this.updateStatus('Room created - Share link to invite others');
+            
+            // Show share section immediately
+            this.generateShareUrl();
+            this.elements.shareSection.style.display = 'block';
+            
+            this.showNotification('Room created successfully!', 'success');
+            
+        } catch (error) {
+            console.error('Error creating room:', error);
+            this.showNotification('Failed to create room', 'error');
+        }
     }
     
     toggleSettings() {
@@ -624,50 +788,49 @@ class PhoneCall {
     }
     
 
-    sendMessage() {
+    async sendMessage() {
         const message = this.elements.messageInput.value.trim();
-        if (!message || !this.channel) return;
+        if (!message || this.dataChannels.size === 0) return;
         
+        const encryptedText = await this.encryptMessage(message);
         const messageData = {
-            text: message,
+            text: encryptedText,
             sender: this.userName,
             timestamp: Date.now(),
             id: Math.random().toString(36).substring(2, 15)
         };
         
-        // Save to local storage immediately
-        this.saveMessageToHistory(messageData);
-        
-        // Send message through Firebase
-        database.ref(`channels/${this.channel}/messages`).push(messageData).then(() => {
-            this.elements.messageInput.value = '';
-        }).catch(error => {
-            console.error('Failed to send message:', error);
-            this.showNotification('Message failed to send', 'error');
+        // Display locally
+        this.displayMessage({
+            text: message,
+            sender: this.userName,
+            timestamp: messageData.timestamp,
+            id: messageData.id
         });
+        
+        // Save to local storage
+        this.saveMessageToHistory({
+            text: message,
+            sender: this.userName,
+            timestamp: messageData.timestamp,
+            id: messageData.id
+        });
+        
+        // Send encrypted message via P2P DataChannels
+        const messageStr = JSON.stringify(messageData);
+        this.dataChannels.forEach((channel, peerId) => {
+            if (channel.readyState === 'open') {
+                channel.send(messageStr);
+            }
+        });
+        
+        this.elements.messageInput.value = '';
     }
     
     setupMessageListener() {
-        if (!database || !this.channel) return;
-        
         // Clear current messages for fresh start
         this.elements.messagesList.innerHTML = '';
-        
-        database.ref(`channels/${this.channel}/messages`).on('child_added', (snapshot) => {
-            const messageData = snapshot.val();
-            if (messageData) {
-                this.displayMessage(messageData);
-                
-                // Auto-cleanup old messages (keep last 20)
-                database.ref(`channels/${this.channel}/messages`).once('value', (messagesSnapshot) => {
-                    const messages = messagesSnapshot.val();
-                    if (messages && Object.keys(messages).length > 20) {
-                        const oldestKey = Object.keys(messages)[0];
-                        database.ref(`channels/${this.channel}/messages/${oldestKey}`).remove();
-                    }
-                });
-            }
-        });
+        // Messages now handled via P2P DataChannels
     }
     
     displayMessage(messageData) {
@@ -829,6 +992,74 @@ class PhoneCall {
         return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
     }
     
+    async generateEncryptionKey() {
+        if (!this.encryptionKey) {
+            this.encryptionKey = await crypto.subtle.generateKey(
+                { name: 'AES-GCM', length: 256 },
+                false,
+                ['encrypt', 'decrypt']
+            );
+        }
+        return this.encryptionKey;
+    }
+    
+    async encryptMessage(text) {
+        const key = await this.generateEncryptionKey();
+        const encoder = new TextEncoder();
+        const data = encoder.encode(text);
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        
+        const encrypted = await crypto.subtle.encrypt(
+            { name: 'AES-GCM', iv: iv },
+            key,
+            data
+        );
+        
+        const combined = new Uint8Array(iv.length + encrypted.byteLength);
+        combined.set(iv);
+        combined.set(new Uint8Array(encrypted), iv.length);
+        
+        return btoa(String.fromCharCode(...combined));
+    }
+    
+    async decryptMessage(encryptedText) {
+        try {
+            const key = await this.generateEncryptionKey();
+            const combined = new Uint8Array(atob(encryptedText).split('').map(c => c.charCodeAt(0)));
+            const iv = combined.slice(0, 12);
+            const encrypted = combined.slice(12);
+            
+            const decrypted = await crypto.subtle.decrypt(
+                { name: 'AES-GCM', iv: iv },
+                key,
+                encrypted
+            );
+            
+            return new TextDecoder().decode(decrypted);
+        } catch (e) {
+            return '[Encrypted message - cannot decrypt]';
+        }
+    }
+    
+    async handleP2PMessage(data, senderId) {
+        try {
+            const messageData = JSON.parse(data);
+            const decryptedText = await this.decryptMessage(messageData.text);
+            
+            const displayMessage = {
+                text: decryptedText,
+                sender: messageData.sender,
+                timestamp: messageData.timestamp,
+                id: messageData.id
+            };
+            
+            this.displayMessage(displayMessage);
+            this.saveMessageToHistory(displayMessage);
+        } catch (e) {
+            console.error('Failed to handle P2P message:', e);
+        }
+    }
+    
     escapeHtml(text) {
         const div = document.createElement('div');
         div.textContent = text;
@@ -986,9 +1217,9 @@ class PhoneCall {
             return;
         }
         
-        // Generate room ID if empty
+        // Generate memorable room ID if empty
         if (!channelId) {
-            channelId = Math.random().toString(36).substring(2, 8).toUpperCase();
+            channelId = this.generateMemorableRoomId();
             this.elements.channelInput.value = channelId;
         }
         
@@ -1020,6 +1251,9 @@ class PhoneCall {
             this.setupAccessRequestListener();
             this.showCallInterface();
             this.updateStatus('Connected to room');
+            
+            // Generate share URL for existing room
+            this.generateShareUrl();
             
         } catch (error) {
             console.error('Error joining room:', error);
@@ -1133,6 +1367,10 @@ class PhoneCall {
             const participants = snapshot.val() || {};
             const participantCount = Object.keys(participants).length;
             console.log('Participants updated:', participantCount, 'total');
+            
+            // Check if others are in call
+            this.othersInCall = Object.values(participants).some(p => p.inCall && p.name !== this.userName);
+            this.updateButtonStates();
             
             this.updateParticipantsList(participants);
             
@@ -1291,17 +1529,18 @@ class PhoneCall {
             return;
         }
         
-        console.log('Adding participant:', encodeURIComponent(name), 'to channel:', encodeURIComponent(this.channel));
+        console.log('Adding participant:', name, 'to channel:', this.channel);
         
-        // Set participant with minimal data including device hash
+        // Set participant with minimal data
         const participantRef = database.ref(`channels/${this.channel}/participants/${name}`);
         participantRef.set({
-            icon: this.userIcon || '👤',
             joined: Date.now(),
-            deviceHash: this.deviceHash
+            deviceHash: this.deviceHash,
+            inCall: this.isCallActive || false,
+            name: name
         }).catch(error => {
             console.error('Failed to add participant:', error.message || error);
-            this.showNotification('Failed to join room', 'error');
+            this.showNotification('Connection failed - check Firebase setup', 'error');
         });
         
         // Set up automatic cleanup on disconnect
@@ -1330,34 +1569,34 @@ class PhoneCall {
     updateParticipantsList(participantsData) {
         const participants = Object.entries(participantsData);
         this.currentCallers = participants.length;
-        this.elements.callerCount.textContent = this.currentCallers;
-        this.elements.maxCallerCount.textContent = this.maxCallers === 0 ? '∞' : this.maxCallers;
-        this.elements.participantCountMini.textContent = this.currentCallers;
         
-        this.elements.participantsList.innerHTML = '';
-        participants.forEach(([name, data], index) => {
-            const li = document.createElement('li');
-            li.className = 'participant-item';
-            li.style.animationDelay = `${index * 0.1}s`;
-            
-            li.innerHTML = `
-                <span class="participant-icon">${data.icon || '👤'}</span>
-                <span class="participant-name">${this.escapeHtml(name)}</span>
-                <div class="volume-bar"></div>
-            `;
-            
-            this.elements.participantsList.appendChild(li);
-        });
+        if (this.elements.callerCount) {
+            this.elements.callerCount.textContent = this.currentCallers;
+        }
+        if (this.elements.maxCallerCount) {
+            this.elements.maxCallerCount.textContent = this.maxCallers === 0 ? '∞' : this.maxCallers;
+        }
+        if (this.elements.participantCountMini) {
+            this.elements.participantCountMini.textContent = this.currentCallers;
+        }
+        
+        if (this.elements.participantsList) {
+            this.elements.participantsList.innerHTML = '';
+            participants.forEach(([name, data]) => {
+                const div = document.createElement('div');
+                div.className = 'participant-item';
+                div.innerHTML = `
+                    <span class="participant-name">${this.escapeHtml(name)}</span>
+                    <span class="participant-status">Online</span>
+                `;
+                this.elements.participantsList.appendChild(div);
+            });
+        }
         
         // Update status based on participant count
         if (this.currentCallers > 1) {
             this.updateStatus('Connected - Voice & Messages');
-            this.elements.statusDot.classList.add('connected');
-        }
-        
-        // Show warning if approaching limit (only if limit is set)
-        if (this.maxCallers > 0 && this.currentCallers >= this.maxCallers - 1) {
-            this.showCallerLimitWarning();
+            if (this.elements.statusDot) this.elements.statusDot.classList.add('connected');
         }
     }
 
@@ -1604,9 +1843,9 @@ class PhoneCall {
         
         if (connectedCount > 0) {
             status = 'Connected - Voice & Messages';
-            this.elements.statusDot.classList.add('connected');
+            if (this.elements.statusDot) this.elements.statusDot.classList.add('connected');
         } else {
-            this.elements.statusDot.classList.remove('connected');
+            if (this.elements.statusDot) this.elements.statusDot.classList.remove('connected');
         }
         
         this.updateStatus(status);
@@ -1621,16 +1860,19 @@ class PhoneCall {
         this.elements.callInterface.classList.remove('hidden');
         this.elements.callInterface.classList.add('fade-in');
         this.updateRoomTitle();
-        this.elements.maxCallerCount.textContent = this.maxCallers === 0 ? '∞' : this.maxCallers;
+        if (this.elements.maxCallerCount) {
+            this.elements.maxCallerCount.textContent = this.maxCallers === 0 ? '∞' : this.maxCallers;
+        }
         
-        // Hide share section initially
-        this.elements.shareSection.style.display = 'none';
+        // Show share section by default
+        if (this.elements.shareSection) {
+            this.elements.shareSection.style.display = 'block';
+        }
         
         // Device-specific interface adjustments
         if (window.innerWidth <= 300) {
             // Smartwatch: hide non-essential elements
             this.elements.participantsToggle?.classList.add('hidden');
-            this.elements.shareSection?.classList.add('hidden');
         }
         
         // Scroll to top on mobile
@@ -1648,9 +1890,6 @@ class PhoneCall {
         this.elements.callInterface.classList.add('hidden');
         this.elements.callSetup.classList.remove('hidden');
         this.elements.callSetup.classList.add('fade-in');
-        
-        // Clear any notifications
-        this.clearNotifications();
     }
 
     resetState() {
@@ -1662,6 +1901,8 @@ class PhoneCall {
         this.localStream = null;
         this.peerConnections = new Map();
         this.remoteStreams = new Map();
+        this.dataChannels = new Map();
+        this.encryptionKey = null;
         this.channel = null;
         this.userName = null;
         this.roomName = null;
@@ -1671,6 +1912,9 @@ class PhoneCall {
         this.connectedPeers = new Set();
         this.maxCallers = 0;
         this.currentCallers = 0;
+        this.isCallActive = false;
+        this.isSpeakerMode = true;
+        this.othersInCall = false;
         
         // Clear heartbeat
         if (this.heartbeatInterval) {
@@ -1679,15 +1923,20 @@ class PhoneCall {
         }
         
         // Reset UI elements
-        this.elements.muteBtn.innerHTML = '<span class="icon">🎤</span><span class="text">Mute</span>';
-        this.elements.muteBtn.classList.remove('muted');
-        this.elements.statusDot.classList.remove('connected');
+        if (this.elements.speakerBtn) {
+            this.elements.speakerBtn.textContent = '🔊 Speaker';
+            this.elements.speakerBtn.classList.remove('active');
+        }
+        this.updateButtonStates();
+        if (this.elements.statusDot) {
+            this.elements.statusDot.classList.remove('connected');
+        }
         
         // Reset collapsible sections
-        this.elements.settingsPanel.classList.add('hidden');
-        this.elements.participantsList.classList.add('hidden');
-        this.elements.participantsToggle.classList.remove('expanded');
-        this.elements.helpContent.classList.add('hidden');
+        if (this.elements.settingsPanel) this.elements.settingsPanel.classList.add('hidden');
+        if (this.elements.participantsList) this.elements.participantsList.classList.add('hidden');
+        if (this.elements.participantsToggle) this.elements.participantsToggle.classList.remove('expanded');
+        if (this.elements.helpContent) this.elements.helpContent.classList.add('hidden');
         
         // Remove any warnings and reconnect banners
         const warning = document.querySelector('.caller-limit-warning');
@@ -1699,19 +1948,23 @@ class PhoneCall {
     }
     
     showNotification(message, type = 'info') {
-        // Remove existing notifications
-        this.clearNotifications();
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.innerHTML = `
+            <div class="toast-content">
+                <span class="toast-message">${message}</span>
+            </div>
+        `;
         
-        const notification = document.createElement('div');
-        notification.className = `notification ${type}`;
-        notification.textContent = message;
-        document.body.appendChild(notification);
+        document.body.appendChild(toast);
         
-        // Auto-remove after 3 seconds
+        requestAnimationFrame(() => {
+            toast.classList.add('toast-show');
+        });
+        
         setTimeout(() => {
-            if (notification.parentNode) {
-                notification.parentNode.removeChild(notification);
-            }
+            toast.classList.add('toast-hide');
+            setTimeout(() => toast.remove(), 300);
         }, 3000);
     }
     

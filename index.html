@@ -10,7 +10,10 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Call">
     <meta name="application-name" content="Call">
-    <title>Secure Room Chat</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <title>call.wecanuseai.com</title>
     
     <!-- Simple favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📞</text></svg>">
@@ -20,11 +23,12 @@
 <body>
     <div class="container">
         <header>
-            <h1>Secure Room Chat</h1>
+            <h1>call.wecanuseai.com</h1>
             <p>Private rooms with messaging and voice calls</p>
         </header>
 
-        <div class="call-setup" id="callSetup">
+        <div class="main-content">
+            <div class="call-setup" id="callSetup">
             <div class="input-group">
                 <label for="channelInput">Room ID</label>
                 <input type="text" id="channelInput" placeholder="Enter room ID or leave blank for new room" maxlength="20">
@@ -69,9 +73,9 @@
             </div>
 
             <div class="control-group">
-                <button id="startCallBtn" class="btn-control">Start Call</button>
-                <button id="muteBtn" class="btn-control">Mute</button>
-                <button id="endCallBtn" class="btn-control danger">End Call</button>
+                <button id="startCallBtn" class="btn-control">📞 Start Call</button>
+                <button id="speakerBtn" class="btn-control">🔊 Speaker</button>
+                <button id="endCallBtn" class="btn-control danger">📵 End Call</button>
             </div>
 
             <div class="message-section">
@@ -94,11 +98,12 @@
             </div>
         </div>
 
-        <div class="chat-history" id="chatHistory">
-            <div class="section-header">
-                <label>Recent Rooms</label>
+            <div class="chat-history" id="chatHistory">
+                <div class="section-header">
+                    <label>Recent Rooms</label>
+                </div>
+                <div id="historyList" class="history-list"></div>
             </div>
-            <div id="historyList" class="history-list"></div>
         </div>
     </div>
 
