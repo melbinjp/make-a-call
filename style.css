@@ -865,6 +865,124 @@ header p {
     border: 1px dashed var(--color-green);
 }
 
+/* Message section styles */
+.message-section {
+    margin-bottom: 20px;
+    border-top: 1px solid var(--border-primary);
+    padding-top: 15px;
+}
+
+.messages {
+    max-height: 250px;
+    overflow-y: auto;
+    margin-bottom: 15px;
+    padding: 15px;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    border: 1px solid var(--border-primary);
+    min-height: 120px;
+}
+
+.message {
+    margin-bottom: 8px;
+    padding: 10px 14px;
+    border-radius: 18px;
+    max-width: 75%;
+    word-wrap: break-word;
+    position: relative;
+    animation: messageSlide 0.3s ease-out;
+}
+
+@keyframes messageSlide {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.message.own {
+    background: var(--color-blue);
+    color: white;
+    margin-left: auto;
+    border-bottom-right-radius: 4px;
+}
+
+.message.other {
+    background: var(--bg-warm);
+    color: var(--text-primary);
+    border: 1px solid var(--color-orange);
+    border-bottom-left-radius: 4px;
+}
+
+.message .message-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.7rem;
+    opacity: 0.7;
+    margin-bottom: 4px;
+    padding: 0;
+}
+
+.message .sender {
+    font-weight: 600;
+}
+
+.message .time {
+    font-size: 0.65rem;
+}
+
+.message-text {
+    font-size: 0.95rem;
+    line-height: 1.3;
+}
+
+.message-input-group {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.message-input-group input {
+    flex: 1;
+    padding: 12px 15px;
+    border: 2px solid var(--border-primary);
+    border-radius: 8px;
+    font-size: 14px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    transition: all 0.3s ease;
+}
+
+.message-input-group input:focus {
+    outline: none;
+    border-color: var(--color-blue);
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.1);
+}
+
+.btn-send {
+    padding: 12px 16px;
+    background: var(--color-blue);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-send:hover {
+    background: var(--color-blue);
+    filter: brightness(1.1);
+    transform: scale(1.05);
+}
+
+.btn-send:active {
+    transform: scale(0.95);
+}
+
 @media (min-width: 768px) {
     .help-content {
         transform: rotate(0.5deg);
@@ -924,6 +1042,25 @@ header p {
     
     .btn-control .icon {
         font-size: 1.6rem;
+    }
+    
+    .messages {
+        max-height: 150px;
+    }
+    
+    .message {
+        max-width: 90%;
+        font-size: 0.85rem;
+    }
+    
+    .message-input-group {
+        gap: 8px;
+    }
+    
+    .btn-send {
+        min-width: 40px;
+        height: 40px;
+        font-size: 1rem;
     }
 }
 

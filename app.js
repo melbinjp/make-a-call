@@ -83,7 +83,10 @@ class PhoneCall {
             participantsList: document.getElementById('participantsList'),
             participantsToggle: document.getElementById('participantsToggle'),
             helpToggle: document.getElementById('helpToggle'),
-            helpContent: document.getElementById('helpContent')
+            helpContent: document.getElementById('helpContent'),
+            messagesList: document.getElementById('messagesList'),
+            messageInput: document.getElementById('messageInput'),
+            sendMessageBtn: document.getElementById('sendMessageBtn')
         };
     }
 
@@ -97,6 +100,11 @@ class PhoneCall {
         this.elements.hangupBtn.addEventListener('click', () => this.hangUp());
         this.elements.participantsToggle.addEventListener('click', () => this.toggleParticipants());
         this.elements.helpToggle.addEventListener('click', () => this.toggleHelp());
+        this.elements.sendMessageBtn.addEventListener('click', () => this.sendMessage());
+        
+        this.elements.messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.sendMessage();
+        });
         
         this.elements.channelInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.joinChannel();
@@ -441,6 +449,68 @@ class PhoneCall {
             content.classList.remove('slide-up');
         }
     }
+    
+
+    sendMessage() {
+        const message = this.elements.messageInput.value.trim();
+        if (!message || !this.channel) return;
+        
+        const messageData = {
+            text: message,
+            sender: this.userName,
+            timestamp: Date.now(),
+            id: Math.random().toString(36).substring(2, 15)
+        };
+        
+        // Send message through Firebase
+        database.ref(`channels/${this.channel}/messages`).push(messageData).then(() => {
+            this.elements.messageInput.value = '';
+        }).catch(error => {
+            console.error('Failed to send message:', error);
+            this.showNotification('Message failed to send', 'error');
+        });
+    }
+    
+    setupMessageListener() {
+        if (!database || !this.channel) return;
+        
+        database.ref(`channels/${this.channel}/messages`).on('child_added', (snapshot) => {
+            const messageData = snapshot.val();
+            if (messageData) {
+                this.displayMessage(messageData);
+                
+                // Auto-cleanup old messages (keep last 50)
+                database.ref(`channels/${this.channel}/messages`).once('value', (messagesSnapshot) => {
+                    const messages = messagesSnapshot.val();
+                    if (messages && Object.keys(messages).length > 50) {
+                        const oldestKey = Object.keys(messages)[0];
+                        database.ref(`channels/${this.channel}/messages/${oldestKey}`).remove();
+                    }
+                });
+            }
+        });
+    }
+    
+    displayMessage(messageData) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${messageData.sender === this.userName ? 'own' : 'other'}`;
+        
+        const time = new Date(messageData.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        
+        messageDiv.innerHTML = `
+            <div class="message-header">
+                <span class="sender">${encodeURIComponent(messageData.sender)}</span>
+                <span class="time">${time}</span>
+            </div>
+            <div class="message-text">${encodeURIComponent(messageData.text)}</div>
+        `;
+        
+        this.elements.messagesList.appendChild(messageDiv);
+        this.elements.messagesList.scrollTop = this.elements.messagesList.scrollHeight;
+        
+        // Auto-scroll to bottom
+        this.elements.messagesList.scrollTop = this.elements.messagesList.scrollHeight;
+    }
 
     generateShareUrl() {
         const baseUrl = window.location.origin + window.location.pathname;
@@ -654,6 +724,9 @@ class PhoneCall {
         
         // Add user to participants
         this.addParticipant(this.userName);
+        
+        // Setup message listener
+        this.setupMessageListener();
         
         // Listen for participants
         database.ref(`channels/${this.channel}/participants`).on('value', (snapshot) => {
@@ -878,7 +951,7 @@ class PhoneCall {
         
         // Update status based on participant count
         if (this.currentCallers > 1) {
-            this.updateStatus('Connected - Call in progress');
+            this.updateStatus('Connected - Voice & Messages');
             this.elements.statusDot.classList.add('connected');
         }
         
@@ -998,22 +1071,24 @@ class PhoneCall {
         
         document.body.appendChild(audio);
         
-        audio.play().then(() => {
-            console.log('🔊 Audio from peer playing:', encodeURIComponent(peerId));
-        }).catch(e => {
-            if (e.name === 'NotAllowedError') {
-                this.showNotification('🔊 Tap to enable audio', 'info');
-                const enableAudio = () => {
-                    audio.play().catch((playError) => {
-                        console.warn('Audio autoplay failed:', playError.message);
-                    });
-                    document.removeEventListener('click', enableAudio);
-                };
-                document.addEventListener('click', enableAudio, { once: true });
-            } else {
+        // Force user interaction for audio playback
+        const playAudio = () => {
+            audio.play().then(() => {
+                console.log('🔊 Audio from peer playing:', encodeURIComponent(peerId));
+                document.removeEventListener('click', playAudio);
+                document.removeEventListener('touchstart', playAudio);
+            }).catch(e => {
                 console.error('Audio playback error:', e.message || e);
-                this.showNotification('Audio playback failed', 'error');
-            }
+                this.showNotification('Tap screen to enable audio', 'info');
+            });
+        };
+        
+        // Try autoplay first
+        audio.play().catch(() => {
+            // If autoplay fails, require user interaction
+            this.showNotification('🔊 Tap screen to enable audio', 'info');
+            document.addEventListener('click', playAudio, { once: true });
+            document.addEventListener('touchstart', playAudio, { once: true });
         });
     }
     
@@ -1047,6 +1122,7 @@ class PhoneCall {
         // Clean up Firebase listeners first
         if (this.channel && database) {
             database.ref(`channels/${this.channel}`).off();
+            database.ref(`channels/${this.channel}/messages`).off();
         }
         
         // Clean up streams
@@ -1100,12 +1176,7 @@ class PhoneCall {
         let status = 'Waiting for others...';
         
         if (connectedCount > 0) {
-            // Shorter status for small screens
-            if (window.innerWidth <= 300) {
-                status = `${connectedCount} connected`;
-            } else {
-                status = `Connected to ${connectedCount} participant${connectedCount > 1 ? 's' : ''}`;
-            }
+            status = 'Connected - Voice & Messages';
             this.elements.statusDot.classList.add('connected');
         } else {
             this.elements.statusDot.classList.remove('connected');
