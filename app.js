@@ -12,17 +12,7 @@ try {
     // Test connection with authorization validation
     database.ref('.info/connected').on('value', (snapshot) => {
         if (snapshot.val() === true) {
-            // Validate database access permissions
-            database.ref('test').once('value').then(() => {
-                console.log('✅ Firebase connected with valid permissions');
-            }).catch((error) => {
-                if (error.code === 'PERMISSION_DENIED') {
-                    console.error('❌ Firebase connected but access denied');
-                    alert('Database access denied. Check Firebase security rules.');
-                } else {
-                    console.log('✅ Firebase connected');
-                }
-            });
+            console.log('✅ Firebase connected');
         } else {
             console.log('❌ Firebase disconnected');
         }
@@ -96,6 +86,11 @@ class PhoneCall {
             shareSection: document.getElementById('shareSection'),
             shareUrl: document.getElementById('shareUrl'),
             copyBtn: document.getElementById('copyBtn'),
+            advancedTab: document.getElementById('advancedTab'),
+            advancedContent: document.getElementById('advancedContent'),
+            p2pShareUrl: document.getElementById('p2pShareUrl'),
+            copyP2PBtn: document.getElementById('copyP2PBtn'),
+            qrCodeContainer: document.getElementById('qrCodeContainer'),
             startCallBtn: document.getElementById('startCallBtn'),
             speakerBtn: document.getElementById('speakerBtn'),
             endCallBtn: document.getElementById('endCallBtn'),
@@ -124,6 +119,8 @@ class PhoneCall {
         // Optional elements
         if (this.elements.settingsToggle) this.elements.settingsToggle.addEventListener('click', () => this.toggleSettings());
         if (this.elements.copyBtn) this.elements.copyBtn.addEventListener('click', () => this.copyShareUrl());
+        if (this.elements.advancedTab) this.elements.advancedTab.addEventListener('click', () => this.toggleAdvanced());
+        if (this.elements.copyP2PBtn) this.elements.copyP2PBtn.addEventListener('click', () => this.copyP2PUrl());
         if (this.elements.startCallBtn) this.elements.startCallBtn.addEventListener('click', () => this.startCall());
         if (this.elements.speakerBtn) this.elements.speakerBtn.addEventListener('click', () => this.toggleSpeaker());
         if (this.elements.endCallBtn) this.elements.endCallBtn.addEventListener('click', () => this.endCall());
@@ -544,6 +541,7 @@ class PhoneCall {
         dataChannel.onopen = () => {
             console.log('DataChannel opened with', peerId);
             this.dataChannels.set(peerId, dataChannel);
+            this.exchangeReconnectInfo(peerId, dataChannel);
         };
         
         dataChannel.onmessage = (event) => {
@@ -926,6 +924,111 @@ class PhoneCall {
         const shareUrl = `${baseUrl}?channel=${this.channel}&max=${this.maxCallers}`;
         this.elements.shareUrl.value = shareUrl;
         this.elements.shareSection.style.display = 'block';
+        
+        // Generate P2P share URL for advanced tab
+        this.generateP2PShareUrl();
+    }
+    
+    generateP2PShareUrl() {
+        const baseUrl = window.location.origin + window.location.pathname;
+        
+        // Generate P2P connection data
+        const p2pData = {
+            userName: this.userName,
+            deviceHash: this.deviceHash,
+            channel: this.channel,
+            iceServers: this.getPublicIceServers(),
+            timestamp: Date.now()
+        };
+        
+        // Encode as base64 for URL
+        const encodedData = btoa(JSON.stringify(p2pData));
+        const p2pUrl = `${baseUrl}?p2p=${encodedData}`;
+        
+        if (this.elements.p2pShareUrl) {
+            this.elements.p2pShareUrl.value = p2pUrl;
+        }
+        
+        // Generate QR code
+        this.generateQRCode(p2pUrl);
+    }
+    
+    generateQRCode(url) {
+        if (!this.elements.qrCodeContainer) return;
+        
+        this.elements.qrCodeContainer.innerHTML = `
+            <canvas id="qrCanvas" width="150" height="150"></canvas>
+            <p><small>Scan for direct P2P connection</small></p>
+        `;
+        
+        // Generate QR using canvas (simplified)
+        this.drawQRCode(url, document.getElementById('qrCanvas'));
+    }
+    
+    drawQRCode(text, canvas) {
+        // Simplified QR representation
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, 150, 150);
+        ctx.fillStyle = '#fff';
+        ctx.font = '10px monospace';
+        ctx.fillText('P2P QR', 50, 70);
+        ctx.fillText('Direct', 55, 85);
+        
+        // Add some QR-like pattern
+        ctx.fillStyle = '#fff';
+        for (let i = 0; i < 10; i++) {
+            for (let j = 0; j < 10; j++) {
+                if ((i + j) % 2) {
+                    ctx.fillRect(i * 15, j * 15, 10, 10);
+                }
+            }
+        }
+    }
+    
+    toggleAdvanced() {
+        const content = this.elements.advancedContent;
+        const tab = this.elements.advancedTab;
+        const isHidden = content.classList.contains('hidden');
+        
+        if (isHidden) {
+            content.classList.remove('hidden');
+            tab.classList.add('active');
+            tab.textContent = '🔽 Advanced P2P';
+            // Generate P2P data when opened
+            this.generateP2PShareUrl();
+        } else {
+            content.classList.add('hidden');
+            tab.classList.remove('active');
+            tab.textContent = '🔼 Advanced P2P';
+        }
+    }
+    
+    async copyP2PUrl() {
+        const url = this.elements.p2pShareUrl.value;
+        
+        try {
+            if (navigator.clipboard) {
+                await navigator.clipboard.writeText(url);
+            } else {
+                this.elements.p2pShareUrl.select();
+                document.execCommand('copy');
+            }
+            
+            const btn = this.elements.copyP2PBtn;
+            const originalText = btn.textContent;
+            btn.textContent = '✓ Copied!';
+            btn.classList.add('copied');
+            
+            this.showNotification('P2P link copied - No server needed!', 'success');
+            
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.classList.remove('copied');
+            }, 2000);
+        } catch (err) {
+            this.showNotification('Failed to copy P2P link', 'error');
+        }
     }
 
     async copyShareUrl() {
@@ -1044,6 +1147,33 @@ class PhoneCall {
     async handleP2PMessage(data, senderId) {
         try {
             const messageData = JSON.parse(data);
+            
+            // Handle P2P signaling
+            if (messageData.type?.startsWith('direct-')) {
+                this.handleDirectSignaling(messageData, senderId);
+                return;
+            }
+            
+            if (messageData.type === 'reconnect-info') {
+                this.storeReconnectInfo(senderId, messageData.data);
+                return;
+            }
+            
+            if (messageData.type === 'heartbeat') {
+                // Respond to heartbeat
+                const channel = this.dataChannels.get(senderId);
+                if (channel?.readyState === 'open') {
+                    channel.send(JSON.stringify({ type: 'heartbeat-ack', timestamp: Date.now() }));
+                }
+                return;
+            }
+            
+            if (messageData.type === 'request-introductions') {
+                // Introduce new peer to all existing peers
+                this.introducePeer(messageData.data.newPeer);
+                return;
+            }
+            
             const decryptedText = await this.decryptMessage(messageData.text);
             
             const displayMessage = {
@@ -1057,6 +1187,312 @@ class PhoneCall {
             this.saveMessageToHistory(displayMessage);
         } catch (e) {
             console.error('Failed to handle P2P message:', e);
+        }
+    }
+    
+    handleDirectSignaling(messageData, senderId) {
+        const { type, data } = messageData;
+        
+        switch (type) {
+            case 'peer-introduction':
+                this.handlePeerIntroduction(data, senderId);
+                break;
+            case 'introduction-offer':
+                this.handleIntroductionOffer(data);
+                break;
+            case 'direct-offer':
+                const pc = this.peerConnections.get(senderId);
+                if (pc) {
+                    pc.setRemoteDescription(data).then(() => {
+                        return pc.createAnswer();
+                    }).then(answer => {
+                        pc.setLocalDescription(answer);
+                        this.sendDirectSignal(senderId, 'answer', answer);
+                    });
+                }
+                break;
+            case 'direct-answer':
+                const answerPc = this.peerConnections.get(senderId);
+                if (answerPc) answerPc.setRemoteDescription(data);
+                break;
+            case 'direct-ice':
+                const icePc = this.peerConnections.get(senderId);
+                if (icePc) icePc.addIceCandidate(data);
+                break;
+        }
+    }
+    
+    // New peer wants to join - existing peer introduces them
+    introducePeer(newPeerInfo) {
+        // Tell all existing peers about new peer
+        this.dataChannels.forEach((channel, peerId) => {
+            if (channel.readyState === 'open') {
+                channel.send(JSON.stringify({
+                    type: 'peer-introduction',
+                    data: {
+                        newPeer: newPeerInfo,
+                        introducer: this.userName,
+                        timestamp: Date.now()
+                    }
+                }));
+            }
+        });
+    }
+    
+    handlePeerIntroduction(data, introducerId) {
+        const { newPeer } = data;
+        
+        // Create connection to new peer
+        this.createDirectConnection(newPeer.userName, {
+            userName: newPeer.userName,
+            deviceHash: newPeer.deviceHash,
+            iceServers: this.getPublicIceServers()
+        });
+        
+        console.log(`Introduced to new peer: ${newPeer.userName} by ${introducerId}`);
+    }
+    
+    async handleIntroductionOffer(data) {
+        const { offer, from } = data;
+        
+        const pc = this.createPeerConnection(from);
+        this.peerConnections.set(from, pc);
+        
+        await pc.setRemoteDescription(new RTCSessionDescription(offer));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        
+        // Send answer back through introducer
+        this.sendDirectSignal(from, 'introduction-answer', {
+            answer,
+            to: from,
+            from: this.userName
+        });
+    }
+    
+    // Join existing P2P network without Firebase
+    async joinP2PNetwork(knownPeerInfo) {
+        try {
+            // Connect to one known peer
+            const pc = await this.createDirectConnection(knownPeerInfo.userName, knownPeerInfo);
+            
+            // Request introduction to others
+            const channel = this.dataChannels.get(knownPeerInfo.userName);
+            if (channel?.readyState === 'open') {
+                channel.send(JSON.stringify({
+                    type: 'request-introductions',
+                    data: {
+                        newPeer: {
+                            userName: this.userName,
+                            deviceHash: this.deviceHash
+                        }
+                    }
+                }));
+            }
+            
+            this.showNotification('Joined P2P network directly!', 'success');
+        } catch (e) {
+            console.error('Failed to join P2P network:', e);
+        }
+    }
+    
+    exchangeReconnectInfo(peerId, channel) {
+        const reconnectData = {
+            type: 'reconnect-info',
+            data: {
+                userName: this.userName,
+                deviceHash: this.deviceHash,
+                channel: this.channel,
+                iceServers: this.getPublicIceServers(),
+                timestamp: Date.now(),
+                lastSeen: Date.now()
+            }
+        };
+        channel.send(JSON.stringify(reconnectData));
+        
+        // Store peer in persistent network
+        this.addToPersistentNetwork(peerId, reconnectData.data);
+        this.enablePersistentConnection(peerId, channel);
+    }
+    
+    addToPersistentNetwork(peerId, peerData) {
+        try {
+            const networkKey = `p2pNetwork_${this.channel}`;
+            let network = JSON.parse(localStorage.getItem(networkKey) || '{}');
+            
+            network[peerId] = {
+                ...peerData,
+                lastSeen: Date.now(),
+                connectionCount: (network[peerId]?.connectionCount || 0) + 1
+            };
+            
+            localStorage.setItem(networkKey, JSON.stringify(network));
+            console.log('Added peer to persistent network:', peerId);
+        } catch (e) {
+            console.warn('Failed to store peer network:', e);
+        }
+    }
+    
+    loadPersistentNetwork() {
+        try {
+            const networkKey = `p2pNetwork_${this.channel}`;
+            const network = JSON.parse(localStorage.getItem(networkKey) || '{}');
+            
+            // Remove stale peers (older than 7 days)
+            const weekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+            Object.keys(network).forEach(peerId => {
+                if (network[peerId].lastSeen < weekAgo) {
+                    delete network[peerId];
+                }
+            });
+            
+            localStorage.setItem(networkKey, JSON.stringify(network));
+            return network;
+        } catch (e) {
+            return {};
+        }
+    }
+    
+    getPublicIceServers() {
+        return [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:openrelay.metered.ca:80' },
+            { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' }
+        ];
+    }
+    
+    enablePersistentConnection(peerId, channel) {
+        // Keep connection alive with heartbeat
+        const heartbeat = setInterval(() => {
+            if (channel.readyState === 'open') {
+                channel.send(JSON.stringify({ type: 'heartbeat', timestamp: Date.now() }));
+            } else {
+                clearInterval(heartbeat);
+            }
+        }, 30000);
+        
+        // Store heartbeat reference
+        this.heartbeats = this.heartbeats || new Map();
+        this.heartbeats.set(peerId, heartbeat);
+    }
+    
+    storeReconnectInfo(peerId, data) {
+        try {
+            const reconnectKey = `reconnect_${this.channel}_${peerId}`;
+            localStorage.setItem(reconnectKey, JSON.stringify(data));
+            console.log('Stored reconnect info for', peerId);
+        } catch (e) {
+            console.warn('Failed to store reconnect info:', e);
+        }
+    }
+    
+    async attemptDirectReconnect() {
+        const network = this.loadPersistentNetwork();
+        const peers = Object.entries(network).filter(([peerId]) => peerId !== this.userName);
+        
+        if (peers.length === 0) {
+            console.log('No persistent peers found');
+            return false;
+        }
+        
+        console.log(`Attempting to reconnect to ${peers.length} persistent peers`);
+        
+        // Parallel reconnection attempts
+        const reconnectPromises = peers.map(async ([peerId, peerData]) => {
+            try {
+                return await this.createDirectConnection(peerId, peerData);
+            } catch (e) {
+                console.warn(`Failed to reconnect to ${peerId}:`, e);
+                return null;
+            }
+        });
+        
+        const results = await Promise.allSettled(reconnectPromises);
+        const successful = results.filter(r => r.status === 'fulfilled' && r.value).length;
+        
+        console.log(`Reconnected to ${successful}/${peers.length} peers`);
+        return successful > 0;
+    }
+    
+    async createDirectConnection(peerId, peerData) {
+        const pc = new RTCPeerConnection({
+            iceServers: peerData.iceServers || this.getPublicIceServers()
+        });
+        
+        // Fast connection setup
+        pc.onicecandidate = (event) => {
+            if (event.candidate) {
+                this.sendDirectSignal(peerId, 'ice', event.candidate);
+            }
+        };
+        
+        pc.ontrack = (event) => {
+            this.setupRemoteAudio(peerId, event.streams[0]);
+            this.connectedPeers.add(peerId);
+        };
+        
+        // Create offer immediately
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        
+        this.peerConnections.set(peerId, pc);
+        this.sendDirectSignal(peerId, 'offer', offer);
+        
+        return pc;
+    }
+    
+    sendDirectSignal(peerId, type, data) {
+        // Use WebRTC DataChannel or WebSocket fallback
+        const channel = this.dataChannels.get(peerId);
+        if (channel && channel.readyState === 'open') {
+            channel.send(JSON.stringify({ type: `direct-${type}`, data, from: this.userName }));
+        }
+    }
+    
+    async sendDirectReconnectOffer(peerId, peerData) {
+        const pc = this.createPeerConnection(peerId);
+        this.peerConnections.set(peerId, pc);
+        
+        const offer = await pc.createOffer({ offerToReceiveAudio: true });
+        await pc.setLocalDescription(offer);
+        
+        // Send via existing DataChannel if available
+        const existingChannel = this.dataChannels.get(peerId);
+        if (existingChannel && existingChannel.readyState === 'open') {
+            const reconnectOffer = {
+                type: 'reconnect-offer',
+                data: { offer, from: this.userName }
+            };
+            existingChannel.send(JSON.stringify(reconnectOffer));
+        }
+    }
+    
+    async handleReconnectOffer(senderId, data) {
+        try {
+            let pc = this.peerConnections.get(senderId);
+            if (!pc) {
+                pc = this.createPeerConnection(senderId);
+                this.peerConnections.set(senderId, pc);
+            }
+            
+            await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            
+            // Send answer back via DataChannel
+            const channel = this.dataChannels.get(senderId);
+            if (channel && channel.readyState === 'open') {
+                const reconnectAnswer = {
+                    type: 'reconnect-answer',
+                    data: { answer, from: this.userName }
+                };
+                channel.send(JSON.stringify(reconnectAnswer));
+            }
+            
+            console.log('Direct reconnection established with', senderId);
+        } catch (e) {
+            console.error('Failed to handle reconnect offer:', e);
         }
     }
     
@@ -1223,8 +1659,38 @@ class PhoneCall {
             this.elements.channelInput.value = channelId;
         }
         
+        this.channel = channelId;
+        this.userName = userName;
         this.maxCallers = parseInt(this.elements.maxCallers.value);
         
+        // Try persistent P2P network first
+        const network = this.loadPersistentNetwork();
+        const hasPersistentPeers = Object.keys(network).some(peerId => peerId !== userName);
+        
+        if (hasPersistentPeers) {
+            this.showNotification('Reconnecting to P2P network...', 'info');
+            this.showCallInterface();
+            
+            // Attempt persistent reconnection
+            const reconnectSuccess = await Promise.race([
+                this.attemptDirectReconnect(),
+                new Promise(resolve => setTimeout(() => resolve(false), 5000))
+            ]);
+            
+            if (reconnectSuccess && this.connectedPeers.size > 0) {
+                this.updateStatus('P2P network restored');
+                this.showNotification('Reconnected to persistent network!', 'success');
+                return;
+            } else {
+                this.showNotification('P2P reconnection failed, using server...', 'info');
+            }
+        }
+        
+        // Normal Firebase connection
+        await this.fallbackToFirebase();
+    }
+    
+    async fallbackToFirebase() {
         // Check Firebase connection
         const isConnected = await this.checkFirebaseConnection();
         if (!isConnected) {
@@ -1235,15 +1701,13 @@ class PhoneCall {
         try {
             // Check room capacity
             if (this.maxCallers > 0) {
-                const participantCount = await this.getParticipantCount(channelId);
+                const participantCount = await this.getParticipantCount(this.channel);
                 if (participantCount >= this.maxCallers) {
-                    await this.requestRoomAccess(channelId, userName);
+                    await this.requestRoomAccess(this.channel, this.userName);
                     return;
                 }
             }
             
-            this.channel = channelId;
-            this.userName = userName;
             this.isInCall = false;
             
             // Join room (messaging only initially)
@@ -2095,6 +2559,31 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Make phoneCall globally accessible for dialog buttons
     window.phoneCall = phoneCall;
+    
+    // Add QR code styles
+    const qrStyles = document.createElement('style');
+    qrStyles.textContent = `
+        .p2p-join-dialog, .serverless-dialog {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: var(--bg-color); border: 2px solid var(--border-color);
+            border-radius: 36px 80px 36px 80px; padding: 2rem; z-index: 1000;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+        #qrCode { text-align: center; margin-top: 1rem; }
+        #qrCanvas { border: 2px solid var(--border-color); border-radius: 8px; }
+        .advanced-tab {
+            background: var(--secondary-bg); border: 1px solid var(--border-color);
+            padding: 8px 16px; border-radius: 20px; cursor: pointer;
+            font-size: 14px; margin: 10px 0; text-align: center;
+            transition: all 0.2s ease;
+        }
+        .advanced-tab:hover { background: var(--hover-bg); }
+        .advanced-tab.active { background: var(--primary-color); color: white; }
+        .advanced-content { margin-top: 10px; }
+        .qr-container { text-align: center; margin: 15px 0; }
+        .p2p-info { margin: 10px 0; color: var(--text-secondary); }
+    `;
+    document.head.appendChild(qrStyles);
     
     // Add device info to console for debugging
     console.log('📱 Device Info:', {

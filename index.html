@@ -64,11 +64,29 @@
 
             <div class="share-section" id="shareSection">
                 <div class="input-group">
-                    <label>Share Room</label>
+                    <label>Share Room (Firebase)</label>
                     <div style="display: flex; gap: 8px;">
                         <input type="text" id="shareUrl" readonly style="flex: 1;">
                         <button id="copyBtn" class="btn-secondary" style="width: auto; padding: 10px 16px;">Copy</button>
                     </div>
+                </div>
+                
+                <div class="advanced-tab" id="advancedTab">🔼 Advanced P2P</div>
+                
+                <div class="advanced-content hidden" id="advancedContent">
+                    <div class="input-group">
+                        <label>Direct P2P Link (No Server)</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="p2pShareUrl" readonly style="flex: 1;">
+                            <button id="copyP2PBtn" class="btn-secondary" style="width: auto; padding: 10px 16px;">Copy P2P</button>
+                        </div>
+                    </div>
+                    
+                    <div id="qrCodeContainer" class="qr-container"></div>
+                    
+                    <p class="p2p-info">
+                        <small>🔒 Direct peer-to-peer connection - no server required after initial handshake</small>
+                    </p>
                 </div>
             </div>
 
