@@ -140,6 +140,10 @@ class PhoneCall {
             this.elements.channelInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') this.joinChannel();
             });
+            
+            this.elements.channelInput.addEventListener('input', (e) => {
+                e.target.value = e.target.value.toLowerCase().replace(/\s+/g, '-');
+            });
         }
         
         // Device-specific optimizations
