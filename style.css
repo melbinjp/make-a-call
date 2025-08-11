@@ -2230,9 +2230,13 @@ select:focus-visible {
     padding: 10px;
     box-shadow: 0 4px 12px var(--shadow-lg);
     z-index: 10;
-    display: flex;
+    display: none;
     flex-direction: column;
     gap: 5px;
+}
+
+.group-sidebar.visible {
+    display: flex;
 }
 
 .btn-icon {

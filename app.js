@@ -1203,20 +1203,20 @@ class PhoneCall {
     
     toggleGroupSidebar() {
         const sidebar = this.elements.groupSidebar;
-        const isHidden = sidebar.classList.contains('hidden');
+        const isVisible = sidebar.classList.contains('visible');
 
-        if (isHidden) {
-            sidebar.classList.remove('hidden');
+        if (!isVisible) {
+            sidebar.classList.add('visible');
             // Add a click listener to the document to close the sidebar
             setTimeout(() => {
                 document.addEventListener('click', (e) => {
                     if (!sidebar.contains(e.target)) {
-                        sidebar.classList.add('hidden');
+                        sidebar.classList.remove('visible');
                     }
                 }, { once: true });
             }, 0);
         } else {
-            sidebar.classList.add('hidden');
+            sidebar.classList.remove('visible');
         }
     }
 
