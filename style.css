@@ -2062,6 +2062,10 @@ select:focus-visible {
     display: none;
 }
 
+#modeInfoModal {
+    z-index: 1001;
+}
+
 .modal-content {
     background: var(--bg-color);
     padding: 2rem;
