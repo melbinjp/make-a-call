@@ -219,8 +219,6 @@ class PhoneCall {
             participantsList: document.getElementById('participantsList'),
             participantsToggle: document.getElementById('participantsToggle'),
             helpToggle: document.getElementById('helpToggle'),
-            roomTitle: document.getElementById('groupTitle'),
-            groupNameInUrl: document.getElementById('groupNameInUrl'),
             helpContent: document.getElementById('helpContent'),
             statusDot: document.getElementById('statusDot'),
             messagesList: document.getElementById('messagesList'),
@@ -233,7 +231,6 @@ class PhoneCall {
             renameGroupBtn: document.getElementById('renameGroupBtn'),
             groupMenuBtn: document.getElementById('groupMenuBtn'),
             groupSidebar: document.getElementById('groupSidebar'),
-            roomTitle: document.getElementById('roomTitle'),
             settingsPanel: document.getElementById('settingsPanel'),
             settingsToggle: document.getElementById('settingsToggle')
         };
@@ -733,7 +730,6 @@ class PhoneCall {
     
     updateGroupDisplay() {
         const groupTitle = document.getElementById('groupTitle');
-        const groupNameInUrl = document.getElementById('groupNameInUrl');
         
         if (groupTitle && this.channel) {
             // Use the memorable room name format for display
@@ -741,10 +737,6 @@ class PhoneCall {
             const displayName = words.map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
             groupTitle.textContent = displayName;
             groupTitle.title = 'Click to rename';
-        }
-        
-        if (groupNameInUrl && this.channel) {
-            groupNameInUrl.textContent = this.channel;
         }
     }
     
