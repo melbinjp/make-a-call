@@ -1110,12 +1110,11 @@ class PhoneCall {
         this.elements.p2pModal.classList.remove('hidden');
     }
     
-    closeModal() {
-        this.elements.joinModal?.classList.add('hidden');
-        this.elements.p2pModal?.classList.add('hidden');
-        this.elements.settingsModal?.classList.add('hidden');
-        const modeInfoModal = document.getElementById('modeInfoModal');
-        if (modeInfoModal) modeInfoModal.classList.add('hidden');
+    closeModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.classList.add('hidden');
+        }
     }
     
     async joinGroup() {

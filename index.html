@@ -57,7 +57,7 @@
                         <input type="text" id="roomCodeInput" placeholder="Enter group code" maxlength="20">
                     </div>
                     <div class="modal-buttons">
-                        <button onclick="phoneCall.closeModal()" class="btn-secondary">Cancel</button>
+                        <button onclick="phoneCall.closeModal('joinModal')" class="btn-secondary">Cancel</button>
                         <button onclick="phoneCall.joinGroup()" class="btn-primary">Join</button>
                     </div>
                 </div>
@@ -92,7 +92,7 @@
                         </div>
                     </div>
                     <div class="modal-buttons">
-                        <button onclick="phoneCall.closeModal()" class="btn-secondary">Close</button>
+                        <button onclick="phoneCall.closeModal('p2pModal')" class="btn-secondary">Close</button>
                     </div>
                 </div>
             </div>
@@ -124,7 +124,7 @@
                         </div>
                     </div>
                     <div class="modal-buttons">
-                        <button onclick="phoneCall.closeModal()" class="btn-secondary">Close</button>
+                        <button onclick="phoneCall.closeModal('modeInfoModal')" class="btn-secondary">Close</button>
                     </div>
                 </div>
             </div>
@@ -152,7 +152,7 @@
                         <button onclick="phoneCall.clearAllData()" class="btn-danger"><i class="fas fa-trash-alt"></i> Clear All Data</button>
                     </div>
                     <div class="modal-buttons">
-                        <button onclick="phoneCall.closeModal()" class="btn-secondary">Close</button>
+                        <button onclick="phoneCall.closeModal('settingsModal')" class="btn-secondary">Close</button>
                     </div>
                 </div>
             </div>
