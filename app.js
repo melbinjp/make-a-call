@@ -106,8 +106,7 @@ function initializeFirebase() {
         isConnectedToFirebase = true;
         console.log('✅ Firebase initialized');
         
-        // Auto-disconnect after setup to free connection slot
-        scheduleFirebaseDisconnect();
+        // Disconnect is now handled intelligently based on P2P connection state
         return database;
     } catch (error) {
         console.error('Firebase initialization failed:', error);
@@ -867,10 +866,20 @@ class PhoneCall {
         pc.onconnectionstatechange = () => {
             if (pc.connectionState === 'connected') {
                 this.connectedPeers.add(peerId);
+                // Once a P2P connection is established, we can schedule a disconnect from Firebase
+                if (this.connectedPeers.size > 0) {
+                    console.log('🕸️ P2P mesh active, scheduling Firebase disconnect.');
+                    scheduleFirebaseDisconnect();
+                }
             } else if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
                 this.connectedPeers.delete(peerId);
                 this.removeRemoteAudio(peerId);
                 this.dataChannels.delete(peerId);
+                // If all P2P connections are lost, reconnect to Firebase to find other peers
+                if (this.connectedPeers.size === 0) {
+                    console.log('🕸️ P2P mesh lost, reconnecting to Firebase.');
+                    reconnectFirebaseTemporarily();
+                }
             }
             this.updateConnectionStatus();
         };
