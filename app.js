@@ -2712,7 +2712,8 @@ class PhoneCall {
             joined: Date.now(),
             deviceHash: sanitizeInput(deviceHash),
             inCall: this.isCallActive || false,
-            name: sanitizeInput(name)
+            name: sanitizeInput(name),
+            icon: this.userIcon
         }).catch(error => {
             console.error('Failed to add participant:', sanitizeForLog(error.message || error));
             this.showNotification('Connection failed - check Firebase setup', 'error');
@@ -2742,6 +2743,7 @@ class PhoneCall {
     }
 
     updateParticipantsList(participantsData) {
+        this.participantsData = participantsData;
         const participants = Object.entries(participantsData);
         const participantCount = participants.length;
         
@@ -2759,13 +2761,13 @@ class PhoneCall {
     }
     
     updateParticipantsDisplay() {
-        if (!this.elements.participantsList) return;
+        if (!this.elements.participantsList || !this.participantsData) return;
         
         this.elements.participantsList.innerHTML = '';
         
-        // Show connected P2P peers
-        this.connectedPeers.forEach(peerHash => {
-            this.addContact(peerHash, peerHash.substring(0, 8));
+        Object.values(this.participantsData).forEach(participant => {
+            const peerHash = participant.deviceHash;
+            this.addContact(peerHash, participant.name);
             const div = document.createElement('div');
             div.className = 'participant-item';
             div.dataset.hash = peerHash;
@@ -2774,6 +2776,7 @@ class PhoneCall {
             const isMe = peerHash === this.deviceHash;
             
             div.innerHTML = `
+                <div class="participant-avatar">${participant.icon || '👤'}</div>
                 <div class="participant-info">
                     <span class="participant-name">${this.escapeHtml(alias)}</span>
                     <span class="participant-status">${isMe ? 'You' : 'Connected'}</span>
@@ -2785,25 +2788,6 @@ class PhoneCall {
             
             this.elements.participantsList.appendChild(div);
         });
-        
-        // Add self if not in connected peers
-        if (!this.connectedPeers.has(this.deviceHash)) {
-            const div = document.createElement('div');
-            div.className = 'participant-item self';
-            div.dataset.hash = this.deviceHash;
-            
-            div.innerHTML = `
-                <div class="participant-info">
-                    <span class="participant-name">${this.escapeHtml(this.getContactAlias(this.deviceHash))}</span>
-                    <span class="participant-status">You</span>
-                </div>
-                <div class="participant-actions">
-                    <button onclick="phoneCall.editContactAlias('${this.deviceHash}')" class="btn-edit">✏️</button>
-                </div>
-            `;
-            
-            this.elements.participantsList.appendChild(div);
-        }
     }
     
     updateParticipantSpeakingState(deviceHash, isSpeaking) {

@@ -177,31 +177,11 @@
                     <span>Leave</span>
                 </button>
             </div>
-
-            <div class="call-controls">
-                <button id="startCallBtn" class="btn-call-primary" title="Start Call">
-                    <i class="fas fa-phone"></i>
-                    <span class="btn-text">Call</span>
-                </button>
-                <button id="muteBtn" class="btn-call-secondary call-only" title="Mute" style="display: none;">
-                    <i class="fas fa-microphone"></i>
-                </button>
-                <button id="speakerBtn" class="btn-call-secondary call-only" title="Speaker" style="display: none;">
-                    <i class="fas fa-volume-up"></i>
-                </button>
-                <button id="testAudioBtn" class="btn-call-secondary call-only" title="Test Audio" style="display: none;">
-                    <i class="fas fa-music"></i>
-                </button>
-                <button id="endCallBtn" class="btn-call-danger call-only" title="End Call" style="display: none;">
-                    <i class="fas fa-phone-slash"></i>
-                </button>
-            </div>
-            
-
-
-            <div class="message-section">
-                <div class="messages" id="messagesList"></div>
-                <div class="message-input-group">
+            <div class="call-body">
+                <div class="call-main-content">
+                    <div class="message-section">
+                        <div class="messages" id="messagesList"></div>
+                        <div class="message-input-group">
                     <input type="text" id="messageInput" placeholder="Type a message..." maxlength="200" autocomplete="off" spellcheck="true">
                     <button id="sendMessageBtn" class="btn-send" aria-label="Send message">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -209,13 +189,34 @@
                         </svg>
                     </button>
                 </div>
-            </div>
-
-            <div class="participants-section">
-                <div class="section-header">
-                    <label>Participants</label>
+                    </div>
+                    <div class="call-controls">
+                        <button id="startCallBtn" class="btn-call-primary" title="Start Call">
+                            <i class="fas fa-phone"></i>
+                            <span class="btn-text">Call</span>
+                        </button>
+                        <button id="muteBtn" class="btn-call-secondary call-only" title="Mute" style="display: none;">
+                            <i class="fas fa-microphone"></i>
+                        </button>
+                        <button id="speakerBtn" class="btn-call-secondary call-only" title="Speaker" style="display: none;">
+                            <i class="fas fa-volume-up"></i>
+                        </button>
+                        <button id="testAudioBtn" class="btn-call-secondary call-only" title="Test Audio" style="display: none;">
+                            <i class="fas fa-music"></i>
+                        </button>
+                        <button id="endCallBtn" class="btn-call-danger call-only" title="End Call" style="display: none;">
+                            <i class="fas fa-phone-slash"></i>
+                        </button>
+                    </div>
                 </div>
-                <div id="participantsList" class="participants-list"></div>
+                <div class="participants-sidebar">
+                    <div class="participants-section">
+                        <div class="section-header">
+                            <label>Participants</label>
+                        </div>
+                        <div id="participantsList" class="participants-list"></div>
+                    </div>
+                </div>
             </div>
         </div>
 
