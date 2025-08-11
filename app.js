@@ -1191,18 +1191,33 @@ class PhoneCall {
     
     toggleGroupSidebar() {
         const sidebar = this.elements.groupSidebar;
+        const menuBtn = this.elements.groupMenuBtn;
+
+        if (!sidebar || !menuBtn) return; // Safety check
+
         const isVisible = sidebar.classList.contains('visible');
 
         if (!isVisible) {
             sidebar.classList.add('visible');
-            // Add a click listener to the document to close the sidebar
+
+            const closeHandler = (e) => {
+                const currentSidebar = document.getElementById('groupSidebar');
+                if (!currentSidebar) return;
+
+                // Let the menu button handle its own click
+                if (menuBtn.contains(e.target)) {
+                    return;
+                }
+
+                if (!currentSidebar.contains(e.target)) {
+                    currentSidebar.classList.remove('visible');
+                }
+            };
+
             setTimeout(() => {
-                document.addEventListener('click', (e) => {
-                    if (!sidebar.contains(e.target)) {
-                        sidebar.classList.remove('visible');
-                    }
-                }, { once: true });
+                document.addEventListener('click', closeHandler, { once: true });
             }, 0);
+
         } else {
             sidebar.classList.remove('visible');
         }
