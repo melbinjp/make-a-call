@@ -2870,6 +2870,12 @@ class PhoneCall {
         this.elements.participantsList.innerHTML = '';
         
         Object.values(this.participantsData).forEach(participant => {
+            // Defensive check to prevent crash on malformed participant data
+            if (!participant || typeof participant !== 'object' || !participant.deviceHash) {
+                console.warn('Skipping invalid participant entry received from Firebase:', participant);
+                return; // Skip this iteration
+            }
+
             const peerHash = participant.deviceHash;
             this.addContact(peerHash, participant.name);
             const div = document.createElement('div');
