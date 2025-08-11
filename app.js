@@ -172,6 +172,7 @@ class PhoneCall {
             this.initializeContactAliases();
             
             this.initializeElements();
+            this.generateUserIdentity();
             this.setupEventListeners();
             this.checkUrlParams();
             this.setupPageUnloadHandler();
@@ -228,6 +229,8 @@ class PhoneCall {
             chatHistory: document.getElementById('chatHistory'),
             historyToggle: document.getElementById('historyToggle'),
             historyList: document.getElementById('historyList'),
+            leaveGroupBtn: document.getElementById('leaveGroupBtn'),
+            renameGroupBtn: document.getElementById('renameGroupBtn'),
             roomTitle: document.getElementById('roomTitle'),
             settingsPanel: document.getElementById('settingsPanel'),
             settingsToggle: document.getElementById('settingsToggle')
@@ -273,11 +276,26 @@ class PhoneCall {
         if (this.elements.helpToggle) this.elements.helpToggle.addEventListener('click', () => this.toggleHelp());
         if (this.elements.sendMessageBtn) this.elements.sendMessageBtn.addEventListener('click', () => this.sendMessage());
         if (this.elements.historyToggle) this.elements.historyToggle.addEventListener('click', () => this.toggleHistory());
-        if (this.elements.roomTitle) this.elements.roomTitle.addEventListener('click', () => this.renameRoom());
+        if (this.elements.leaveGroupBtn) this.elements.leaveGroupBtn.addEventListener('click', () => this.leaveRoom());
+        if (this.elements.renameGroupBtn) this.elements.renameGroupBtn.addEventListener('click', () => this.renameRoom());
         
         if (this.elements.messageInput) {
             this.elements.messageInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') this.sendMessage();
+                if (e.key === 'Enter') {
+                    this.sendMessage();
+                    this.broadcastTypingState(false);
+                } else {
+                    this.broadcastTypingState(true);
+                }
+            });
+            let typingTimeout;
+            this.elements.messageInput.addEventListener('keyup', (e) => {
+                if (e.key !== 'Enter') {
+                    clearTimeout(typingTimeout);
+                    typingTimeout = setTimeout(() => {
+                        this.broadcastTypingState(false);
+                    }, 1000);
+                }
             });
         }
         
@@ -290,6 +308,14 @@ class PhoneCall {
                 e.target.value = e.target.value.toLowerCase().replace(/\s+/g, '-');
             });
         }
+
+        this.elements.messagesList.addEventListener('click', (e) => {
+            if (e.target.closest('.btn-reaction')) {
+                const button = e.target.closest('.btn-reaction');
+                const messageId = button.dataset.messageId;
+                this.showReactionPanel(button, messageId);
+            }
+        });
         
         // Device-specific optimizations
         this.setupDeviceOptimizations();
@@ -436,6 +462,152 @@ class PhoneCall {
             }
         }
     }
+
+    broadcastTypingState(isTyping) {
+        const message = {
+            type: 'typing',
+            typing: isTyping,
+            senderHash: this.deviceHash,
+            senderName: this.userName,
+        };
+        const messageStr = JSON.stringify(message);
+        this.dataChannels.forEach((channel) => {
+            if (channel.readyState === 'open') {
+                channel.send(messageStr);
+            }
+        });
+    }
+
+    updateTypingIndicator(senderHash, senderName, isTyping) {
+        let indicator = document.getElementById('typingIndicator');
+        if (!indicator) {
+            indicator = document.createElement('div');
+            indicator.id = 'typingIndicator';
+            indicator.className = 'typing-indicator';
+            this.elements.messagesList.insertAdjacentElement('afterend', indicator);
+        }
+
+        const typingUsers = this.typingUsers || new Map();
+        if (isTyping) {
+            typingUsers.set(senderHash, senderName);
+        } else {
+            typingUsers.delete(senderHash);
+        }
+        this.typingUsers = typingUsers;
+
+        if (typingUsers.size > 0) {
+            const names = Array.from(typingUsers.values());
+            let text = '';
+            if (names.length === 1) {
+                text = `${names[0]} is typing...`;
+            } else if (names.length === 2) {
+                text = `${names[0]} and ${names[1]} are typing...`;
+            } else {
+                text = `${names.slice(0, 2).join(', ')} and others are typing...`;
+            }
+            indicator.textContent = text;
+            indicator.style.display = 'block';
+        } else {
+            indicator.style.display = 'none';
+        }
+    }
+
+    showReactionPanel(button, messageId) {
+        let panel = document.getElementById('reactionPanel');
+        if (panel) {
+            panel.remove();
+        }
+
+        panel = document.createElement('div');
+        panel.id = 'reactionPanel';
+        panel.className = 'reaction-panel';
+
+        const reactions = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+        reactions.forEach(reaction => {
+            const span = document.createElement('span');
+            span.textContent = reaction;
+            span.addEventListener('click', () => {
+                this.sendReaction(messageId, reaction);
+                panel.remove();
+            });
+            panel.appendChild(span);
+        });
+
+        document.body.appendChild(panel);
+        const rect = button.getBoundingClientRect();
+        panel.style.top = `${rect.top - panel.offsetHeight - 5}px`;
+        panel.style.left = `${rect.left}px`;
+
+        // Close panel when clicking outside
+        setTimeout(() => {
+            document.addEventListener('click', (e) => {
+                if (!panel.contains(e.target) && e.target !== button) {
+                    panel.remove();
+                }
+            }, { once: true });
+        }, 0);
+    }
+
+    sendReaction(messageId, reaction) {
+        const message = {
+            type: 'reaction',
+            messageId: messageId,
+            reaction: reaction,
+            senderHash: this.deviceHash,
+        };
+        const messageStr = JSON.stringify(message);
+        this.dataChannels.forEach((channel) => {
+            if (channel.readyState === 'open') {
+                channel.send(messageStr);
+            }
+        });
+        this.updateReactions(messageId, reaction, this.deviceHash);
+    }
+
+    updateReactions(messageId, reaction, senderHash) {
+        const reactionsContainer = document.getElementById(`reactions-${messageId}`);
+        if (!reactionsContainer) return;
+
+        this.messageReactions = this.messageReactions || new Map();
+        let messageReactions = this.messageReactions.get(messageId);
+        if (!messageReactions) {
+            messageReactions = new Map();
+        }
+
+        let reactionUsers = messageReactions.get(reaction);
+        if (!reactionUsers) {
+            reactionUsers = new Set();
+        }
+
+        if (reactionUsers.has(senderHash)) {
+            reactionUsers.delete(senderHash);
+        } else {
+            reactionUsers.add(senderHash);
+        }
+
+        messageReactions.set(reaction, reactionUsers);
+        this.messageReactions.set(messageId, messageReactions);
+
+        this.renderReactions(messageId);
+    }
+
+    renderReactions(messageId) {
+        const reactionsContainer = document.getElementById(`reactions-${messageId}`);
+        if (!reactionsContainer) return;
+
+        reactionsContainer.innerHTML = '';
+        const messageReactions = this.messageReactions.get(messageId);
+        if (messageReactions) {
+            messageReactions.forEach((users, reaction) => {
+                if (users.size > 0) {
+                    const reactionDiv = document.createElement('div');
+                    reactionDiv.className = 'reaction';
+                    reactionDiv.textContent = `${reaction} ${users.size}`;
+                    reactionsContainer.appendChild(reactionDiv);
+                }
+            });
+        }
+    }
     
     toggleSpeaker() {
         this.isSpeakerMuted = !this.isSpeakerMuted;
@@ -575,7 +747,7 @@ class PhoneCall {
     }
     
     async requestRoomAccess(channelId, userName) {
-        this.showNotification('Requesting to join room...', 'info');
+        this.showNotification('Requesting to join group...', 'info');
         
         const requestData = {
             requester: sanitizeInput(userName),
@@ -610,10 +782,10 @@ class PhoneCall {
             this.userName = sanitizeInput(userName);
             this.setupSignaling();
             this.showCallInterface();
-            this.updateStatus('Connected to room');
-            this.showNotification('Welcome to the room!', 'success');
+            this.updateStatus('Connected to group');
+            this.showNotification('Welcome to the group!', 'success');
         } else if (result === 'denied') {
-            this.showNotification('Access denied by room members', 'error');
+            this.showNotification('Access denied by group members', 'error');
         } else {
             this.showNotification('Request timed out', 'error');
         }
@@ -639,7 +811,7 @@ class PhoneCall {
         dialog.innerHTML = `
             <div class="dialog-content">
                 <h4>🚪 Join Request</h4>
-                <p><strong>${this.escapeHtml(requestData.requester)}</strong> wants to join the room.</p>
+                <p><strong>${this.escapeHtml(requestData.requester)}</strong> wants to join the group.</p>
                 <div class="dialog-buttons">
                     <button class="btn-secondary" onclick="phoneCall.handleJoinRequest('${requestId}', 'denied')">Deny</button>
                     <button class="btn-primary" onclick="phoneCall.handleJoinRequest('${requestId}', 'approved')">Allow</button>
@@ -951,7 +1123,7 @@ class PhoneCall {
         const userName = this.elements.nameInput.value.trim();
         
         if (!roomCode || !validateInput(roomCode, 'roomCode', 20)) {
-            this.showNotification('Enter valid room code (letters, numbers, dashes only)', 'error');
+            this.showNotification('Enter valid group code (letters, numbers, dashes only)', 'error');
             return;
         }
         
@@ -1122,7 +1294,11 @@ class PhoneCall {
             <div class="message-content">
                 <div class="message-text">${this.processMessageText(messageData.text)}</div>
                 <div class="message-time">${time}</div>
+                <div class="message-actions">
+                    <button class="btn-reaction" data-message-id="${messageData.id}"><i class="far fa-smile"></i></button>
+                </div>
             </div>
+            <div class="reactions" id="reactions-${messageData.id}"></div>
         `;
         
         // Animate message in
@@ -1489,6 +1665,21 @@ class PhoneCall {
                 return;
             }
             
+            if (messageData.type === 'speaking') {
+                this.updateParticipantSpeakingState(messageData.senderHash, messageData.speaking);
+                return;
+            }
+
+            if (messageData.type === 'typing') {
+                this.updateTypingIndicator(messageData.senderHash, messageData.senderName, messageData.typing);
+                return;
+            }
+
+            if (messageData.type === 'reaction') {
+                this.updateReactions(messageData.messageId, messageData.reaction, messageData.senderHash);
+                return;
+            }
+
             // Only accept messages from trusted peers
             if (!this.trustedPeers.has(senderId)) {
                 console.warn('Message from untrusted peer:', senderId);
@@ -1946,7 +2137,7 @@ class PhoneCall {
             this.elements.historyList.innerHTML = '';
             
             if (rooms.length === 0) {
-                this.elements.historyList.innerHTML = '<div class="history-item">No previous rooms</div>';
+                this.elements.historyList.innerHTML = '<div class="history-item">No previous groups</div>';
                 return;
             }
             
@@ -1955,7 +2146,7 @@ class PhoneCall {
                 item.className = 'history-item';
                 
                 const time = new Date(room.lastActivity).toLocaleDateString();
-                const displayName = room.roomName || `Room ${room.channel}`;
+                const displayName = room.roomName || `Group ${room.channel}`;
                 item.innerHTML = `
                     <div class="history-room">${this.escapeHtml(displayName)}</div>
                     <div class="history-time">${time} • ${room.userName}</div>
@@ -1979,7 +2170,7 @@ class PhoneCall {
             const messages = await this.loadFromEncryptedStorage(historyKey) || [];
             
             if (messages.length === 0) {
-                this.showNotification('No messages in this room', 'info');
+                this.showNotification('No messages in this group', 'info');
                 return;
             }
             
@@ -1989,19 +2180,19 @@ class PhoneCall {
             
             secureNotify(`Last messages from ${displayName}: ${messageText.substring(0, 100)}...`, 'info');
         } catch (e) {
-            this.showNotification('Failed to load room history', 'error');
+            this.showNotification('Failed to load group history', 'error');
         }
     }
     
     renameRoom() {
-        const currentName = this.roomName || `Room ${this.channel}`;
+        const currentName = this.roomName || `Group ${this.channel}`;
         
-        securePrompt('Enter room name:', currentName, (newName) => {
+        securePrompt('Enter group name:', currentName, (newName) => {
             if (newName && validateInput(newName, 'text', 50) && newName !== currentName) {
                 this.roomName = sanitizeInput(newName);
                 this.updateRoomTitle();
                 this.updateRoomHistory();
-                this.showNotification('Room renamed!', 'success');
+                this.showNotification('Group renamed!', 'success');
             }
         });
     }
@@ -2031,12 +2222,11 @@ class PhoneCall {
             'Anonymous Rabbit', 'Anonymous Elephant', 'Anonymous Dolphin'
         ];
         
-        if (!this.elements.nameInput || !this.elements.nameInput.value.trim()) {
-            this.userName = anonymousNames[Math.floor(Math.random() * anonymousNames.length)];
-        } else {
-            this.userName = this.elements.nameInput.value.trim();
+        const randomName = anonymousNames[Math.floor(Math.random() * anonymousNames.length)];
+        if (this.elements.nameInput) {
+            this.elements.nameInput.value = randomName;
         }
-        
+        this.userName = randomName;
         this.userIcon = icons[Math.floor(Math.random() * icons.length)];
     }
 
@@ -2110,7 +2300,7 @@ class PhoneCall {
                 this.userName = uniqueName;
             }
             
-            // Check if room has participants (requires approval)
+            // Check if group has participants (requires approval)
             const participantCount = await this.getParticipantCount(this.channel);
             if (participantCount > 0) {
                 await this.requestRoomAccess(this.channel, this.userName);
@@ -2119,13 +2309,13 @@ class PhoneCall {
             
             this.isInCall = false;
             
-            // Join room (messaging only initially)
+            // Join group (messaging only initially)
             this.setupSignaling();
             this.setupAccessRequestListener();
             this.showCallInterface();
-            this.updateStatus('Connected to room');
+            this.updateStatus('Connected to group');
             
-            // Generate share URL for existing room
+            // Generate share URL for existing group
             this.generateShareUrl();
             
             // Schedule Firebase disconnect after mesh is established
@@ -2137,8 +2327,8 @@ class PhoneCall {
             }, 10000);
             
         } catch (error) {
-            console.error('Error joining room:', error);
-            this.showNotification('Failed to join room', 'error');
+            console.error('Error joining group:', error);
+            this.showNotification('Failed to join group', 'error');
         }
     }
 
@@ -2211,6 +2401,7 @@ class PhoneCall {
             // Setup basic audio processing
             try {
                 this.setupAudioProcessing();
+                this.setupVoiceActivityDetection();
             } catch (audioError) {
                 console.error('Audio processing setup failed:', sanitizeForLog(audioError.message));
             }
@@ -2260,6 +2451,44 @@ class PhoneCall {
         compressor.connect(gainNode);
         
         this.audioGainNode = gainNode;
+    }
+
+    setupVoiceActivityDetection() {
+        if (!this.localStream || !this.audioAnalyser) return;
+
+        const dataArray = new Uint8Array(this.audioAnalyser.frequencyBinCount);
+        let wasSpeaking = false;
+
+        const checkSpeaking = () => {
+            if (!this.audioAnalyser) return;
+            this.audioAnalyser.getByteFrequencyData(dataArray);
+            const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+            const isSpeaking = average > 20; // Threshold can be adjusted
+
+            if (isSpeaking !== wasSpeaking) {
+                wasSpeaking = isSpeaking;
+                this.broadcastSpeakingState(isSpeaking);
+            }
+            requestAnimationFrame(checkSpeaking);
+        };
+
+        checkSpeaking();
+    }
+
+    broadcastSpeakingState(isSpeaking) {
+        const message = {
+            type: 'speaking',
+            speaking: isSpeaking,
+            senderHash: this.deviceHash,
+        };
+        const messageStr = JSON.stringify(message);
+        this.dataChannels.forEach((channel) => {
+            if (channel.readyState === 'open') {
+                channel.send(messageStr);
+            }
+        });
+        // also update my own UI
+        this.updateParticipantSpeakingState(this.deviceHash, isSpeaking);
     }
 
     setupSignaling() {
@@ -2540,6 +2769,7 @@ class PhoneCall {
             this.addContact(peerHash, peerHash.substring(0, 8));
             const div = document.createElement('div');
             div.className = 'participant-item';
+            div.dataset.hash = peerHash;
             
             const alias = this.getContactAlias(peerHash);
             const isMe = peerHash === this.deviceHash;
@@ -2561,6 +2791,7 @@ class PhoneCall {
         if (!this.connectedPeers.has(this.deviceHash)) {
             const div = document.createElement('div');
             div.className = 'participant-item self';
+            div.dataset.hash = this.deviceHash;
             
             div.innerHTML = `
                 <div class="participant-info">
@@ -2576,6 +2807,17 @@ class PhoneCall {
         }
     }
     
+    updateParticipantSpeakingState(deviceHash, isSpeaking) {
+        const participantItem = document.querySelector(`.participant-item[data-hash="${deviceHash}"]`);
+        if (participantItem) {
+            if (isSpeaking) {
+                participantItem.classList.add('speaking');
+            } else {
+                participantItem.classList.remove('speaking');
+            }
+        }
+    }
+
     async editContactAlias(deviceHash) {
         const currentAlias = this.getContactAlias(deviceHash);
         const isMe = deviceHash === this.deviceHash;

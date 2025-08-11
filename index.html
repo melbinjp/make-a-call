@@ -24,7 +24,7 @@
 <body>
     <div class="container">
         <header>
-            <h1>call.wecanuseai.com</h1>
+            <h1><i class="fas fa-phone-alt"></i> call.wecanuseai.com</h1>
         </header>
 
         <div class="main-content">
@@ -34,30 +34,16 @@
                     <input type="text" id="nameInput" placeholder="Enter your name" maxlength="30" required>
                 </div>
 
-                <div class="connection-mode">
-                    <div class="mode-header">
-                        <label>Connection Mode</label>
-                        <button id="modeInfoBtn" class="btn-info">ℹ️</button>
-                    </div>
-                    <div class="toggle-container">
-                        <span class="toggle-label">P2P Only</span>
-                        <div class="toggle-switch" id="modeToggle">
-                            <div class="toggle-slider"></div>
-                        </div>
-                        <span class="toggle-label">Cloud Assisted</span>
-                    </div>
-                </div>
-
                 <div class="action-buttons">
-                    <button id="createRoomBtn" class="btn-primary">📞 Create Group</button>
-                    <button id="joinRoomBtn" class="btn-secondary">🚪 Join Group</button>
-                    <button id="p2pConnectBtn" class="btn-secondary">🔗 P2P Connect</button>
+                    <button id="createRoomBtn" class="btn-primary"><i class="fas fa-plus"></i> Create Group</button>
+                    <button id="joinRoomBtn" class="btn-secondary"><i class="fas fa-door-open"></i> Join Group</button>
+                    <button id="p2pConnectBtn" class="btn-secondary"><i class="fas fa-link"></i> P2P Connect</button>
                 </div>
 
                 <div class="contacts-section">
                     <div class="section-header">
                         <label>Recent Contacts</label>
-                        <button id="settingsBtn" class="btn-icon">⚙️</button>
+                        <button id="settingsBtn" class="btn-icon"><i class="fas fa-cog"></i></button>
                     </div>
                     <div id="contactsList" class="contacts-list"></div>
                 </div>
@@ -86,7 +72,7 @@
                             <label>Your P2P URL</label>
                             <div style="display: flex; gap: 8px;">
                                 <input type="text" id="myP2PUrl" readonly>
-                                <button onclick="phoneCall.copyMyP2PUrl()" class="btn-copy">Copy</button>
+                                <button onclick="phoneCall.copyMyP2PUrl()" class="btn-copy"><i class="fas fa-copy"></i> Copy</button>
                             </div>
                         </div>
                         <div class="qr-section">
@@ -96,13 +82,13 @@
                             <label>Connect to P2P URL</label>
                             <div style="display: flex; gap: 8px;">
                                 <input type="text" id="p2pUrlInput" placeholder="Paste P2P URL">
-                                <button onclick="phoneCall.scanQR()" class="btn-secondary">📷 Scan</button>
-                                <button onclick="phoneCall.connectViaP2PUrl()" class="btn-primary">Connect</button>
+                                <button onclick="phoneCall.scanQR()" class="btn-secondary"><i class="fas fa-qrcode"></i> Scan</button>
+                                <button onclick="phoneCall.connectViaP2PUrl()" class="btn-primary"><i class="fas fa-plug"></i> Connect</button>
                             </div>
                         </div>
                         <div id="qrScanner" class="qr-scanner hidden">
                             <video id="qrVideo" width="300" height="200"></video>
-                            <button onclick="phoneCall.stopQRScan()" class="btn-secondary">Stop Scan</button>
+                            <button onclick="phoneCall.stopQRScan()" class="btn-secondary"><i class="fas fa-stop-circle"></i> Stop Scan</button>
                         </div>
                     </div>
                     <div class="modal-buttons">
@@ -117,23 +103,23 @@
                     <h3>Connection Modes</h3>
                     <div class="mode-info">
                         <div class="mode-option">
-                            <h4>🔗 P2P Only</h4>
+                            <h4><i class="fas fa-link"></i> P2P Only</h4>
                             <p>Direct peer-to-peer connections without servers. More private but requires manual connection setup.</p>
                             <ul>
-                                <li>✅ Maximum privacy</li>
-                                <li>✅ No server dependency</li>
-                                <li>⚠️ Manual connection sharing</li>
-                                <li>⚠️ Both users must be online</li>
+                                <li><i class="fas fa-check-circle"></i> Maximum privacy</li>
+                                <li><i class="fas fa-check-circle"></i> No server dependency</li>
+                                <li><i class="fas fa-exclamation-triangle"></i> Manual connection sharing</li>
+                                <li><i class="fas fa-exclamation-triangle"></i> Both users must be online</li>
                             </ul>
                         </div>
                         <div class="mode-option">
-                            <h4>☁️ Cloud Assisted</h4>
-                            <p>Uses Firebase for easy room joining and connection setup. Simpler to use with room codes.</p>
+                            <h4><i class="fas fa-cloud"></i> Cloud Assisted</h4>
+                            <p>Uses Firebase for easy group joining and connection setup. Simpler to use with group codes.</p>
                             <ul>
-                                <li>✅ Easy room codes</li>
-                                <li>✅ Automatic connection</li>
-                                <li>✅ Works if users join at different times</li>
-                                <li>ℹ️ Uses Firebase for signaling only</li>
+                                <li><i class="fas fa-check-circle"></i> Easy group codes</li>
+                                <li><i class="fas fa-check-circle"></i> Automatic connection</li>
+                                <li><i class="fas fa-check-circle"></i> Works if users join at different times</li>
+                                <li><i class="fas fa-info-circle"></i> Uses Firebase for signaling only</li>
                             </ul>
                         </div>
                     </div>
@@ -147,10 +133,23 @@
             <div class="modal hidden" id="settingsModal">
                 <div class="modal-content">
                     <h3>Settings</h3>
+                    <div class="connection-mode">
+                        <div class="mode-header">
+                            <label>Connection Mode</label>
+                            <button id="modeInfoBtn" class="btn-info"><i class="fas fa-info-circle"></i></button>
+                        </div>
+                        <div class="toggle-container">
+                            <span class="toggle-label">P2P Only</span>
+                            <div class="toggle-switch" id="modeToggle">
+                                <div class="toggle-slider"></div>
+                            </div>
+                            <span class="toggle-label">Cloud Assisted</span>
+                        </div>
+                    </div>
                     <div class="settings-options">
-                        <button onclick="phoneCall.installApp()" class="btn-secondary">📱 Install App</button>
-                        <button onclick="phoneCall.exportData()" class="btn-secondary">💾 Export Data</button>
-                        <button onclick="phoneCall.clearAllData()" class="btn-danger">🗑️ Clear All Data</button>
+                        <button onclick="phoneCall.installApp()" class="btn-secondary"><i class="fas fa-download"></i> Install App</button>
+                        <button onclick="phoneCall.exportData()" class="btn-secondary"><i class="fas fa-file-export"></i> Export Data</button>
+                        <button onclick="phoneCall.clearAllData()" class="btn-danger"><i class="fas fa-trash-alt"></i> Clear All Data</button>
                     </div>
                     <div class="modal-buttons">
                         <button onclick="phoneCall.closeModal()" class="btn-secondary">Close</button>
@@ -162,7 +161,7 @@
         <div class="call-interface hidden" id="callInterface">
             <div class="group-header">
                 <div class="group-title-section">
-                    <h3 id="groupTitle" title="Click to rename">Group</h3>
+                    <h3 id="groupTitle" title="Click to rename">Group</h3><button id="renameGroupBtn" class="btn-icon btn-edit-title"><i class="fas fa-pencil-alt"></i></button>
                     <div class="group-url">
                         <span class="url-base">call.wecanuseai.com/</span>
                         <span class="group-name" id="groupNameInUrl">group-name</span>
@@ -173,6 +172,10 @@
                     <span id="callStatus">Connected</span> • 
                     <span id="callerCount">1</span>/<span id="maxCallerCount">5</span> participants
                 </div>
+                <button id="leaveGroupBtn" class="btn-leave" title="Leave Group">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Leave</span>
+                </button>
             </div>
 
             <div class="call-controls">
@@ -219,10 +222,6 @@
             <div class="chat-history" id="chatHistory">
                 <div class="section-header">
                     <label>Recent Groups</label>
-                    <button id="leaveRoomBtn" class="btn-leave" title="Leave Group">
-                        <i class="fas fa-sign-out-alt"></i>
-                        <span>Leave</span>
-                    </button>
                 </div>
                 <div id="historyList" class="history-list"></div>
             </div>
