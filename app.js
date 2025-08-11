@@ -3113,8 +3113,9 @@ class PhoneCall {
         this.updateStatus(status);
     }
 
-    updateStatus(status) {
-        this.elements.callStatus.textContent = status;
+    updateStatus(status, type = 'info') {
+        // This is a duplicate of showNotification, let's consolidate
+        this.showNotification(status, type);
     }
 
     showCallInterface() {
