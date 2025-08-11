@@ -200,7 +200,6 @@ class PhoneCall {
             settingsToggle: document.getElementById('settingsToggle'),
             settingsPanel: document.getElementById('settingsPanel'),
             currentChannel: document.getElementById('currentChannel'),
-            callStatus: document.getElementById('callStatus'),
             statusDot: document.getElementById('statusDot'),
             callerCount: document.getElementById('callerCount'),
             maxCallerCount: document.getElementById('maxCallerCount'),
@@ -724,8 +723,8 @@ class PhoneCall {
         this.resetState();
     }
     
-    updateStatus(status) {
-        this.elements.callStatus.textContent = status;
+    updateStatus(status, type = 'info') {
+        this.showNotification(status, type);
     }
     
     updateGroupDisplay() {
