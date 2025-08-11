@@ -2209,16 +2209,62 @@ class PhoneCall {
     }
     
     renameRoom() {
+        if (this.isEditingName) return;
+        this.isEditingName = true;
+
+        const groupTitle = this.elements.roomTitle;
         const currentName = this.roomName || this.channel;
-        
-        securePrompt('Enter group name:', currentName, (newName) => {
-            if (newName && validateInput(newName, 'text', 50) && newName !== currentName) {
-                this.roomName = sanitizeInput(newName);
-                this.updateRoomTitle();
-                this.updateRoomHistory();
-                this.showNotification('Group renamed!', 'success');
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'inline-edit-input';
+        input.value = currentName;
+
+        const confirmBtn = document.createElement('button');
+        confirmBtn.className = 'btn-icon-bare';
+        confirmBtn.innerHTML = '<i class="fas fa-check"></i>';
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'btn-icon-bare';
+        cancelBtn.innerHTML = '<i class="fas fa-times"></i>';
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'inline-edit-wrapper';
+        wrapper.appendChild(input);
+        wrapper.appendChild(confirmBtn);
+        wrapper.appendChild(cancelBtn);
+
+        const groupNameWrapper = groupTitle.parentElement;
+        groupNameWrapper.style.display = 'none';
+        groupNameWrapper.parentElement.insertBefore(wrapper, groupNameWrapper);
+        input.focus();
+        input.select();
+
+        const endNameEdit = (shouldSave) => {
+            if (shouldSave) {
+                const newName = input.value.trim();
+                if (newName && validateInput(newName, 'text', 50) && newName !== currentName) {
+                    this.roomName = sanitizeInput(newName);
+                    this.updateRoomTitle();
+                    this.updateRoomHistory();
+                    this.showNotification('Group renamed!', 'success');
+                }
+            }
+            wrapper.remove();
+            groupNameWrapper.style.display = '';
+            this.isEditingName = false;
+        };
+
+        confirmBtn.addEventListener('click', () => endNameEdit(true));
+        cancelBtn.addEventListener('click', () => endNameEdit(false));
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                endNameEdit(true);
+            } else if (e.key === 'Escape') {
+                endNameEdit(false);
             }
         });
+        input.addEventListener('blur', () => endNameEdit(true));
     }
     
     updateRoomTitle() {

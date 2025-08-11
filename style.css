@@ -2710,6 +2710,23 @@ select:focus-visible {
     gap: 10px;
 }
 
+.inline-edit-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.inline-edit-input {
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 5px 10px;
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--text-color);
+    width: 200px;
+}
+
 .group-title-section h3 {
     margin: 0;
     font-size: 1.2rem;
