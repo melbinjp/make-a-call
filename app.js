@@ -2209,7 +2209,7 @@ class PhoneCall {
     }
     
     renameRoom() {
-        const currentName = this.roomName || `Group ${this.channel}`;
+        const currentName = this.roomName || this.channel;
         
         securePrompt('Enter group name:', currentName, (newName) => {
             if (newName && validateInput(newName, 'text', 50) && newName !== currentName) {

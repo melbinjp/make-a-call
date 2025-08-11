@@ -2697,6 +2697,12 @@ select:focus-visible {
     gap: 15px;
 }
 
+.group-name-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
 .group-title-section h3 {
     margin: 0;
     font-size: 1.2rem;
