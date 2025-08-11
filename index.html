@@ -162,20 +162,14 @@
             <div class="group-header">
                 <div class="group-title-section">
                     <h3 id="groupTitle" title="Click to rename">Group</h3><button id="renameGroupBtn" class="btn-icon btn-edit-title"><i class="fas fa-pencil-alt"></i></button>
-                    <div class="group-url">
-                        <span class="url-base">call.wecanuseai.com/</span>
-                        <span class="group-name" id="groupNameInUrl">group-name</span>
-                        <button id="copyBtn" class="btn-copy-url" title="Copy URL"><i class="fas fa-copy"></i></button>
+                </div>
+                <div class="group-actions">
+                    <button id="groupMenuBtn" class="btn-icon"><i class="fas fa-ellipsis-v"></i></button>
+                    <div class="group-sidebar hidden" id="groupSidebar">
+                        <button id="copyBtn" class="btn-sidebar" title="Copy URL"><i class="fas fa-copy"></i> Copy URL</button>
+                        <button id="leaveGroupBtn" class="btn-sidebar btn-leave" title="Leave Group"><i class="fas fa-sign-out-alt"></i> Leave</button>
                     </div>
                 </div>
-                <div class="group-status">
-                    <span id="callStatus">Connected</span> • 
-                    <span id="callerCount">1</span>/<span id="maxCallerCount">5</span> participants
-                </div>
-                <button id="leaveGroupBtn" class="btn-leave" title="Leave Group">
-                    <i class="fas fa-sign-out-alt"></i>
-                    <span>Leave</span>
-                </button>
             </div>
             <div class="call-body">
                 <div class="call-main-content">

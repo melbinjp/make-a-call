@@ -231,6 +231,8 @@ class PhoneCall {
             historyList: document.getElementById('historyList'),
             leaveGroupBtn: document.getElementById('leaveGroupBtn'),
             renameGroupBtn: document.getElementById('renameGroupBtn'),
+            groupMenuBtn: document.getElementById('groupMenuBtn'),
+            groupSidebar: document.getElementById('groupSidebar'),
             roomTitle: document.getElementById('roomTitle'),
             settingsPanel: document.getElementById('settingsPanel'),
             settingsToggle: document.getElementById('settingsToggle')
@@ -278,6 +280,10 @@ class PhoneCall {
         if (this.elements.historyToggle) this.elements.historyToggle.addEventListener('click', () => this.toggleHistory());
         if (this.elements.leaveGroupBtn) this.elements.leaveGroupBtn.addEventListener('click', () => this.leaveRoom());
         if (this.elements.renameGroupBtn) this.elements.renameGroupBtn.addEventListener('click', () => this.renameRoom());
+        if (this.elements.groupMenuBtn) this.elements.groupMenuBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.toggleGroupSidebar();
+        });
         
         if (this.elements.messageInput) {
             this.elements.messageInput.addEventListener('keypress', (e) => {
@@ -1195,6 +1201,25 @@ class PhoneCall {
         }
     }
     
+    toggleGroupSidebar() {
+        const sidebar = this.elements.groupSidebar;
+        const isHidden = sidebar.classList.contains('hidden');
+
+        if (isHidden) {
+            sidebar.classList.remove('hidden');
+            // Add a click listener to the document to close the sidebar
+            setTimeout(() => {
+                document.addEventListener('click', (e) => {
+                    if (!sidebar.contains(e.target)) {
+                        sidebar.classList.add('hidden');
+                    }
+                }, { once: true });
+            }, 0);
+        } else {
+            sidebar.classList.add('hidden');
+        }
+    }
+
     toggleHistory() {
         const list = this.elements.historyList;
         const toggle = this.elements.historyToggle;
@@ -3132,8 +3157,8 @@ class PhoneCall {
         
         // Reset UI elements
         if (this.elements.speakerBtn) {
-            this.elements.speakerBtn.textContent = '🔊 Speaker';
-            this.elements.speakerBtn.classList.remove('active');
+            this.elements.speakerBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+            this.elements.speakerBtn.classList.remove('active', 'muted');
         }
         this.updateButtonStates();
         if (this.elements.statusDot) {
