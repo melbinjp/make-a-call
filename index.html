@@ -13,6 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet" />
     <title>call.wecanuseai.com</title>
     
     <!-- Simple favicon -->
@@ -24,77 +25,176 @@
     <div class="container">
         <header>
             <h1>call.wecanuseai.com</h1>
-            <p>Private rooms with messaging and voice calls</p>
         </header>
 
         <div class="main-content">
             <div class="call-setup" id="callSetup">
-            <div class="input-group">
-                <label for="channelInput">Room ID</label>
-                <input type="text" id="channelInput" placeholder="Enter room ID or leave blank for new room" maxlength="20">
-            </div>
-            
-            <div class="input-group">
-                <label for="nameInput">Your Name</label>
-                <input type="text" id="nameInput" placeholder="Enter your name" maxlength="30" required>
+                <div class="input-group">
+                    <label for="nameInput">Your Name</label>
+                    <input type="text" id="nameInput" placeholder="Enter your name" maxlength="30" required>
+                </div>
+
+                <div class="connection-mode">
+                    <div class="mode-header">
+                        <label>Connection Mode</label>
+                        <button id="modeInfoBtn" class="btn-info">ℹ️</button>
+                    </div>
+                    <div class="toggle-container">
+                        <span class="toggle-label">P2P Only</span>
+                        <div class="toggle-switch" id="modeToggle">
+                            <div class="toggle-slider"></div>
+                        </div>
+                        <span class="toggle-label">Cloud Assisted</span>
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    <button id="createRoomBtn" class="btn-primary">📞 Create Group</button>
+                    <button id="joinRoomBtn" class="btn-secondary">🚪 Join Group</button>
+                    <button id="p2pConnectBtn" class="btn-secondary">🔗 P2P Connect</button>
+                </div>
+
+                <div class="contacts-section">
+                    <div class="section-header">
+                        <label>Recent Contacts</label>
+                        <button id="settingsBtn" class="btn-icon">⚙️</button>
+                    </div>
+                    <div id="contactsList" class="contacts-list"></div>
+                </div>
             </div>
 
-            <div class="input-group">
-                <label for="maxCallers">Max Participants</label>
-                <select id="maxCallers">
-                    <option value="0">Unlimited</option>
-                    <option value="2">2 people</option>
-                    <option value="5" selected>5 people</option>
-                    <option value="10">10 people</option>
-                </select>
+            <!-- Join Group Modal -->
+            <div class="modal hidden" id="joinModal">
+                <div class="modal-content">
+                    <h3>Join Group</h3>
+                    <div class="input-group">
+                        <input type="text" id="roomCodeInput" placeholder="Enter group code" maxlength="20">
+                    </div>
+                    <div class="modal-buttons">
+                        <button onclick="phoneCall.closeModal()" class="btn-secondary">Cancel</button>
+                        <button onclick="phoneCall.joinGroup()" class="btn-primary">Join</button>
+                    </div>
+                </div>
             </div>
 
-            <button id="joinBtn" class="btn-primary">Join Room</button>
-            <button id="quickCallBtn" class="btn-secondary">Create New Room</button>
+            <!-- P2P Connect Modal -->
+            <div class="modal hidden" id="p2pModal">
+                <div class="modal-content">
+                    <h3>P2P Connection</h3>
+                    <div class="p2p-options">
+                        <div class="input-group">
+                            <label>Your P2P URL</label>
+                            <div style="display: flex; gap: 8px;">
+                                <input type="text" id="myP2PUrl" readonly>
+                                <button onclick="phoneCall.copyMyP2PUrl()" class="btn-copy">Copy</button>
+                            </div>
+                        </div>
+                        <div class="qr-section">
+                            <div id="qrCode"></div>
+                        </div>
+                        <div class="input-group">
+                            <label>Connect to P2P URL</label>
+                            <div style="display: flex; gap: 8px;">
+                                <input type="text" id="p2pUrlInput" placeholder="Paste P2P URL">
+                                <button onclick="phoneCall.scanQR()" class="btn-secondary">📷 Scan</button>
+                                <button onclick="phoneCall.connectViaP2PUrl()" class="btn-primary">Connect</button>
+                            </div>
+                        </div>
+                        <div id="qrScanner" class="qr-scanner hidden">
+                            <video id="qrVideo" width="300" height="200"></video>
+                            <button onclick="phoneCall.stopQRScan()" class="btn-secondary">Stop Scan</button>
+                        </div>
+                    </div>
+                    <div class="modal-buttons">
+                        <button onclick="phoneCall.closeModal()" class="btn-secondary">Close</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mode Info Modal -->
+            <div class="modal hidden" id="modeInfoModal">
+                <div class="modal-content">
+                    <h3>Connection Modes</h3>
+                    <div class="mode-info">
+                        <div class="mode-option">
+                            <h4>🔗 P2P Only</h4>
+                            <p>Direct peer-to-peer connections without servers. More private but requires manual connection setup.</p>
+                            <ul>
+                                <li>✅ Maximum privacy</li>
+                                <li>✅ No server dependency</li>
+                                <li>⚠️ Manual connection sharing</li>
+                                <li>⚠️ Both users must be online</li>
+                            </ul>
+                        </div>
+                        <div class="mode-option">
+                            <h4>☁️ Cloud Assisted</h4>
+                            <p>Uses Firebase for easy room joining and connection setup. Simpler to use with room codes.</p>
+                            <ul>
+                                <li>✅ Easy room codes</li>
+                                <li>✅ Automatic connection</li>
+                                <li>✅ Works if users join at different times</li>
+                                <li>ℹ️ Uses Firebase for signaling only</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="modal-buttons">
+                        <button onclick="phoneCall.closeModal()" class="btn-secondary">Close</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Modal -->
+            <div class="modal hidden" id="settingsModal">
+                <div class="modal-content">
+                    <h3>Settings</h3>
+                    <div class="settings-options">
+                        <button onclick="phoneCall.installApp()" class="btn-secondary">📱 Install App</button>
+                        <button onclick="phoneCall.exportData()" class="btn-secondary">💾 Export Data</button>
+                        <button onclick="phoneCall.clearAllData()" class="btn-danger">🗑️ Clear All Data</button>
+                    </div>
+                    <div class="modal-buttons">
+                        <button onclick="phoneCall.closeModal()" class="btn-secondary">Close</button>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="call-interface hidden" id="callInterface">
-            <div class="room-header">
-                <h3 id="roomTitle" title="Click to rename">Room</h3>
-                <div class="room-status">
+            <div class="group-header">
+                <div class="group-title-section">
+                    <h3 id="groupTitle" title="Click to rename">Group</h3>
+                    <div class="group-url">
+                        <span class="url-base">call.wecanuseai.com/</span>
+                        <span class="group-name" id="groupNameInUrl">group-name</span>
+                        <button id="copyBtn" class="btn-copy-url" title="Copy URL"><i class="fas fa-copy"></i></button>
+                    </div>
+                </div>
+                <div class="group-status">
                     <span id="callStatus">Connected</span> • 
                     <span id="callerCount">1</span>/<span id="maxCallerCount">5</span> participants
                 </div>
             </div>
 
-            <div class="share-section" id="shareSection">
-                <div class="input-group">
-                    <label>Share Room (Firebase)</label>
-                    <div style="display: flex; gap: 8px;">
-                        <input type="text" id="shareUrl" readonly style="flex: 1;">
-                        <button id="copyBtn" class="btn-secondary" style="width: auto; padding: 10px 16px;">Copy</button>
-                    </div>
-                </div>
-                
-                <div class="advanced-tab" id="advancedTab">🔼 Advanced P2P</div>
-                
-                <div class="advanced-content hidden" id="advancedContent">
-                    <div class="input-group">
-                        <label>Direct P2P Link (No Server)</label>
-                        <div style="display: flex; gap: 8px;">
-                            <input type="text" id="p2pShareUrl" readonly style="flex: 1;">
-                            <button id="copyP2PBtn" class="btn-secondary" style="width: auto; padding: 10px 16px;">Copy P2P</button>
-                        </div>
-                    </div>
-                    
-                    <div id="qrCodeContainer" class="qr-container"></div>
-                    
-                    <p class="p2p-info">
-                        <small>🔒 Direct peer-to-peer connection - no server required after initial handshake</small>
-                    </p>
-                </div>
+            <div class="call-controls">
+                <button id="startCallBtn" class="btn-call-primary" title="Start Call">
+                    <i class="fas fa-phone"></i>
+                    <span class="btn-text">Call</span>
+                </button>
+                <button id="muteBtn" class="btn-call-secondary call-only" title="Mute" style="display: none;">
+                    <i class="fas fa-microphone"></i>
+                </button>
+                <button id="speakerBtn" class="btn-call-secondary call-only" title="Speaker" style="display: none;">
+                    <i class="fas fa-volume-up"></i>
+                </button>
+                <button id="testAudioBtn" class="btn-call-secondary call-only" title="Test Audio" style="display: none;">
+                    <i class="fas fa-music"></i>
+                </button>
+                <button id="endCallBtn" class="btn-call-danger call-only" title="End Call" style="display: none;">
+                    <i class="fas fa-phone-slash"></i>
+                </button>
             </div>
+            
 
-            <div class="control-group">
-                <button id="startCallBtn" class="btn-control">📞 Start Call</button>
-                <button id="speakerBtn" class="btn-control">🔊 Speaker</button>
-                <button id="endCallBtn" class="btn-control danger">📵 End Call</button>
-            </div>
 
             <div class="message-section">
                 <div class="messages" id="messagesList"></div>
@@ -118,17 +218,31 @@
 
             <div class="chat-history" id="chatHistory">
                 <div class="section-header">
-                    <label>Recent Rooms</label>
+                    <label>Recent Groups</label>
+                    <button id="leaveRoomBtn" class="btn-leave" title="Leave Group">
+                        <i class="fas fa-sign-out-alt"></i>
+                        <span>Leave</span>
+                    </button>
                 </div>
                 <div id="historyList" class="history-list"></div>
             </div>
         </div>
     </div>
 
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#007aff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Call">
+    
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="assets/qrcode.min.js"></script>
     <script src="config.js"></script>
     <script src="app.js"></script>
+    
+
     
     <!-- Haptic feedback for mobile -->
     <script>

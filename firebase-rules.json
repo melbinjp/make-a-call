@@ -1,0 +1,29 @@
+{
+  "rules": {
+    "channels": {
+      "$channelId": {
+        ".read": true,
+        ".write": true,
+        "participants": {
+          ".read": true,
+          ".write": true
+        },
+        "signals": {
+          ".read": true,
+          ".write": true,
+          ".indexOn": ["timestamp"]
+        },
+        "introductions": {
+          ".read": true,
+          ".write": true,
+          ".indexOn": ["timestamp"]
+        },
+        "joinRequests": {
+          ".read": true,
+          ".write": true,
+          ".indexOn": ["timestamp"]
+        }
+      }
+    }
+  }
+}
