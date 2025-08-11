@@ -714,20 +714,19 @@ class PhoneCall {
         this.showNotification(status, type);
     }
     
-    updateGroupDisplay() {
-        const groupTitle = document.getElementById('groupTitle');
+    updateRoomTitle(newName = null) {
+        if (newName) {
+            this.roomName = newName;
+        }
         
+        const groupTitle = this.elements.roomTitle;
         if (groupTitle && this.channel) {
-            // Use the memorable room name format for display
-            const words = this.channel.split('-');
+            const nameToDisplay = this.roomName || this.channel;
+            const words = nameToDisplay.split(/[\s-]+/);
             const displayName = words.map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
             groupTitle.textContent = displayName;
-            groupTitle.title = 'Click to rename';
+            groupTitle.title = 'Click to rename group';
         }
-    }
-    
-    updateRoomTitle() {
-        this.updateGroupDisplay();
     }
     
     async requestRoomAccess(channelId, userName) {
@@ -853,7 +852,7 @@ class PhoneCall {
         
         pc.ontrack = (event) => {
             try {
-                console.log('🎵 Received track from', sanitizeForLog(peerId));
+                console.log(`[${this.userName}] 🎵 Received track from`, sanitizeForLog(peerId));
                 this.remoteStreams.set(peerId, event.streams[0]);
                 this.setupRemoteAudio(peerId, event.streams[0]);
                 this.connectedPeers.add(peerId);
@@ -862,8 +861,18 @@ class PhoneCall {
                 console.error('Track handling error:', sanitizeForLog(error.message));
             }
         };
+
+        // Detailed Logging for WebRTC State
+        pc.onsignalingstatechange = () => {
+            console.log(`[${this.userName}] WebRTC signaling state change for peer ${peerId}: ${pc.signalingState}`);
+        };
+
+        pc.oniceconnectionstatechange = () => {
+            console.log(`[${this.userName}] WebRTC ICE connection state change for peer ${peerId}: ${pc.iceConnectionState}`);
+        };
         
         pc.onconnectionstatechange = () => {
+            console.log(`[${this.userName}] WebRTC connection state change for peer ${peerId}: ${pc.connectionState}`);
             if (pc.connectionState === 'connected') {
                 this.connectedPeers.add(peerId);
                 // Once a P2P connection is established, we can schedule a disconnect from Firebase
@@ -871,7 +880,7 @@ class PhoneCall {
                     console.log('🕸️ P2P mesh active, scheduling Firebase disconnect.');
                     scheduleFirebaseDisconnect();
                 }
-            } else if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+            } else if (pc.connectionState === 'failed' || pc.connectionState === 'closed' || pc.connectionState === 'disconnected') {
                 this.connectedPeers.delete(peerId);
                 this.removeRemoteAudio(peerId);
                 this.dataChannels.delete(peerId);
@@ -1073,11 +1082,17 @@ class PhoneCall {
         const groupId = this.generateMemorableRoomId();
         this.channel = groupId;
         this.userName = sanitizeInput(userName);
+        this.roomName = groupId; // Set initial name
         
+        // Write initial name to Firebase
+        if (database) {
+            database.ref(`channels/${this.channel}/name`).set(this.roomName);
+        }
+
         try {
             this.setupSignaling();
             this.showCallInterface();
-            this.updateGroupDisplay();
+            this.updateRoomTitle();
             this.updateStatus('Group created - Share to invite others');
             this.showNotification('Group created!', 'success');
         } catch (error) {
@@ -2247,7 +2262,14 @@ class PhoneCall {
             if (shouldSave) {
                 const newName = input.value.trim();
                 if (newName && validateInput(newName, 'text', 50) && newName !== currentName) {
-                    this.roomName = sanitizeInput(newName);
+                    const sanitizedName = sanitizeInput(newName);
+                    this.roomName = sanitizedName;
+
+                    // Update in Firebase
+                    if (database) {
+                        database.ref(`channels/${this.channel}/name`).set(sanitizedName);
+                    }
+
                     this.updateRoomTitle();
                     this.updateRoomHistory();
                     this.showNotification('Group renamed!', 'success');
@@ -2598,6 +2620,14 @@ class PhoneCall {
         // Setup group introduction system
         this.setupGroupIntroductionListener();
         
+        // Listen for group name changes
+        database.ref(`channels/${this.channel}/name`).on('value', (snapshot) => {
+            const newName = snapshot.val();
+            if (newName) {
+                this.updateRoomTitle(newName);
+            }
+        });
+
         // Listen for participants and create mesh connections
         database.ref(`channels/${this.channel}/participants`).on('value', (snapshot) => {
             const participants = snapshot.val() || {};
