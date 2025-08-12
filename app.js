@@ -2813,7 +2813,8 @@ class PhoneCall {
         const signalData = {
             type: type,
             payload: payload,
-            sender: this.userName,
+            sender: this.deviceHash, // Use the unique deviceHash as the sender ID
+            senderName: this.userName, // Keep userName for display purposes if needed
             timestamp: Date.now()
         };
         
