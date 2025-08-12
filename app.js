@@ -290,7 +290,7 @@ class PhoneCall {
         
         if (this.elements.roomCodeInput) {
             this.elements.roomCodeInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') this.joinRoom();
+                if (e.key === 'Enter') this.joinGroup();
             });
             
             this.elements.roomCodeInput.addEventListener('input', (e) => {
