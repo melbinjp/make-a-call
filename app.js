@@ -1912,9 +1912,14 @@ class PhoneCall {
     }
     
     getPublicIceServers() {
+        // Adding more public STUN servers to increase NAT traversal success rate.
+        // The public TURN server is known to be unreliable, so improving STUN is the best bet.
         return [
             { urls: 'stun:stun.l.google.com:19302' },
             { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun.services.mozilla.com' },
+            { urls: 'stun:stun.stunprotocol.org:3478' },
             { urls: 'stun:openrelay.metered.ca:80' },
             { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' }
         ];
