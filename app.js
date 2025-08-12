@@ -2719,6 +2719,11 @@ class PhoneCall {
     async handleSignal(data) {
         try {
             const { type, payload, sender } = data;
+
+            // Ignore signals not intended for this client
+            if (payload && payload.targetPeer && payload.targetPeer !== this.deviceHash) {
+                return;
+            }
             
             // Validate payload exists
             if (!payload) {
