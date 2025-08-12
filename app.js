@@ -836,10 +836,8 @@ class PhoneCall {
         pc.onicecandidate = (event) => {
             try {
                 if (event.candidate) {
-                    const candidate = event.candidate;
-                    if (candidate.sdpMid || candidate.sdpMLineIndex !== null) {
-                        this.sendSignal('ice-candidate', { candidate, targetPeer: peerId });
-                    }
+                    // Send any non-null candidate, converted to a plain object for Firebase
+                    this.sendSignal('ice-candidate', { candidate: event.candidate.toJSON(), targetPeer: peerId });
                 }
             } catch (error) {
                 console.error('ICE candidate error:', sanitizeForLog(error.message));
