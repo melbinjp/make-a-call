@@ -2643,14 +2643,22 @@ class PhoneCall {
                     hash !== this.deviceHash && !this.peerConnections.has(hash)
                 );
                 
-                // Introduce new participants to existing ones
+                // Create PeerConnections for new peers and decide who sends the offer
                 newHashes.forEach(peerHash => {
-                    if (participants[peerHash]) {
-                        this.introduceToAllPeers({
-                            deviceHash: peerHash,
-                            userName: participants[peerHash].name
-                        });
-                        this.connectToPeer(peerHash, peerHash);
+                    if (participants[peerHash] && !this.peerConnections.has(peerHash)) {
+                        console.log(`[${this.userName}] Found new peer: ${peerHash}. Creating PeerConnection.`);
+                        // 1. Create the PeerConnection object immediately for all new peers.
+                        const pc = this.createPeerConnection(peerHash);
+                        this.peerConnections.set(peerHash, pc);
+
+                        // 2. Use the tie-breaker to decide which peer sends the offer.
+                        const shouldInitiate = this.deviceHash < peerHash;
+                        if (shouldInitiate) {
+                            console.log(`[${this.userName}] I am the initiator for peer ${peerHash}. Sending offer.`);
+                            this.sendOffer(peerHash);
+                        } else {
+                            console.log(`[${this.userName}] I am the receiver for peer ${peerHash}. Waiting for offer.`);
+                        }
                     }
                 });
                 
@@ -2685,26 +2693,27 @@ class PhoneCall {
         });
     }
 
-    async connectToPeer(peerId, peerHash) {
-        if (this.peerConnections.has(peerId)) return;
-        
-        const pc = this.createPeerConnection(peerId);
-        this.peerConnections.set(peerId, pc);
-        
-        const shouldInitiate = this.deviceHash < peerHash;
-        
-        if (shouldInitiate) {
-            try {
+    async sendOffer(peerId) {
+        try {
+            const pc = this.peerConnections.get(peerId);
+            if (!pc) {
+                console.error(`[${this.userName}] No peer connection found for ${peerId} when trying to send offer.`);
+                return;
+            }
+
+            if (pc.signalingState === 'stable') {
                 const offer = await pc.createOffer({ offerToReceiveAudio: true });
                 await pc.setLocalDescription(offer);
                 this.sendSignal('offer', { offer, targetPeer: peerId });
-                console.log('🚀 Sent offer to peer:', encodeURIComponent(peerId));
-            } catch (error) {
-                console.error('Error creating offer for peer:', encodeURIComponent(peerId), error.message || error);
+                console.log(`[${this.userName}] 🚀 Sent offer to peer:`, encodeURIComponent(peerId));
+            } else {
+                console.warn(`[${this.userName}] Tried to send offer to ${peerId}, but signaling state is ${pc.signalingState}.`);
             }
+        } catch (error) {
+            console.error(`[${this.userName}] Error creating offer for peer:`, encodeURIComponent(peerId), error.message || error);
         }
     }
-    
+
     disconnectFromPeer(peerId) {
         const pc = this.peerConnections.get(peerId);
         if (pc) {
