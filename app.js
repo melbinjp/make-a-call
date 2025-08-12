@@ -2594,7 +2594,7 @@ class PhoneCall {
         const signalsRef = database.ref(`channels/${this.channel}/signals`);
         signalsRef.on('child_added', (snapshot) => {
             const data = snapshot.val();
-            if (data && data.sender !== this.userName) {
+            if (data && data.sender !== this.deviceHash) {
                 console.log('Received signal:', data.type, 'from', encodeURIComponent(data.sender));
                 this.handleSignal(data);
                 
