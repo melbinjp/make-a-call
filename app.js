@@ -2720,47 +2720,73 @@ class PhoneCall {
         try {
             const { type, payload, sender } = data;
             
+            // Validate payload exists
+            if (!payload) {
+                console.warn(`[${this.userName}] Received signal of type ${type} with no payload.`);
+                return;
+            }
+
             switch (type) {
                 case 'offer':
                     if (!this.localStream) return;
                     
+                    // Validate offer payload
+                    if (!payload.offer || !payload.offer.type || !payload.offer.sdp) {
+                        console.warn(`[${this.userName}] Received invalid offer payload:`, payload);
+                        return;
+                    }
+
                     let pc = this.peerConnections.get(sender);
                     if (!pc) {
                         pc = this.createPeerConnection(sender);
                         this.peerConnections.set(sender, pc);
                     }
                     
-                    if (pc.signalingState !== 'stable') return;
+                    if (pc.signalingState !== 'stable') {
+                        console.warn(`[${this.userName}] Received offer from ${sender} but signaling state is ${pc.signalingState}. Ignoring.`);
+                        return;
+                    }
                     
                     await pc.setRemoteDescription(new RTCSessionDescription(payload.offer));
                     const answer = await pc.createAnswer({ offerToReceiveAudio: true });
                     await pc.setLocalDescription(answer);
                     this.sendSignal('answer', { answer, targetPeer: sender });
-                    console.log('📞 Answered call from peer:', encodeURIComponent(sender));
+                    console.log(`[${this.userName}] 📞 Answered call from peer:`, encodeURIComponent(sender));
                     break;
                     
                 case 'answer':
+                    // Validate answer payload
+                    if (!payload.answer || !payload.answer.type || !payload.answer.sdp) {
+                        console.warn(`[${this.userName}] Received invalid answer payload:`, payload);
+                        return;
+                    }
+
                     const answerPc = this.peerConnections.get(sender);
                     if (answerPc && answerPc.signalingState === 'have-local-offer') {
                         await answerPc.setRemoteDescription(new RTCSessionDescription(payload.answer));
-                        console.log('✅ Call established with peer:', encodeURIComponent(sender));
+                        console.log(`[${this.userName}] ✅ Call established with peer:`, encodeURIComponent(sender));
+                    } else {
+                         console.warn(`[${this.userName}] Received answer from ${sender} but not in have-local-offer state.`);
                     }
                     break;
                     
                 case 'ice-candidate':
+                    // Validate ICE candidate payload
+                    if (!payload.candidate) {
+                        console.warn(`[${this.userName}] Received invalid ICE candidate payload:`, payload);
+                        return;
+                    }
+
                     const candidatePc = this.peerConnections.get(sender);
-                    if (candidatePc && payload.candidate) {
-                        const candidate = payload.candidate;
-                        if (candidate.sdpMid || candidate.sdpMLineIndex !== null) {
-                            if (candidatePc.remoteDescription) {
-                                await candidatePc.addIceCandidate(new RTCIceCandidate(candidate));
-                            }
+                    if (candidatePc) {
+                         if (candidatePc.remoteDescription) {
+                            await candidatePc.addIceCandidate(new RTCIceCandidate(payload.candidate));
                         }
                     }
                     break;
             }
         } catch (error) {
-            console.error('Error handling signal:', error);
+            console.error(`[${this.userName}] Error handling signal:`, error);
         }
     }
 
