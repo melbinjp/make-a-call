@@ -1143,7 +1143,7 @@ class PhoneCall {
         
         this.channel = sanitizeInput(roomCode);
         this.userName = sanitizeInput(userName);
-        this.closeModal();
+        this.closeModal('joinModal');
         
         try {
             this.setupSignaling();
@@ -2639,39 +2639,37 @@ class PhoneCall {
             
             this.updateParticipantsList(participants);
             
-            // Create mesh connections for group calling
-            if (this.localStream) {
-                const currentHashes = Object.keys(participants);
-                const newHashes = currentHashes.filter(hash => 
-                    hash !== this.deviceHash && !this.peerConnections.has(hash)
-                );
-                
-                // Create PeerConnections for new peers and decide who sends the offer
-                newHashes.forEach(peerHash => {
-                    if (participants[peerHash] && !this.peerConnections.has(peerHash)) {
-                        console.log(`[${this.userName}] Found new peer: ${peerHash}. Creating PeerConnection.`);
-                        // 1. Create the PeerConnection object immediately for all new peers.
-                        const pc = this.createPeerConnection(peerHash);
-                        this.peerConnections.set(peerHash, pc);
+            // Create mesh connections for messaging and calling automatically
+            const currentHashes = Object.keys(participants);
+            const newHashes = currentHashes.filter(hash =>
+                hash !== this.deviceHash && !this.peerConnections.has(hash)
+            );
 
-                        // 2. Use the tie-breaker to decide which peer sends the offer.
-                        const shouldInitiate = this.deviceHash < peerHash;
-                        if (shouldInitiate) {
-                            console.log(`[${this.userName}] I am the initiator for peer ${peerHash}. Sending offer.`);
-                            this.sendOffer(peerHash);
-                        } else {
-                            console.log(`[${this.userName}] I am the receiver for peer ${peerHash}. Waiting for offer.`);
-                        }
+            // Create PeerConnections for new peers and decide who sends the offer
+            newHashes.forEach(peerHash => {
+                if (participants[peerHash] && !this.peerConnections.has(peerHash)) {
+                    console.log(`[${this.userName}] Found new peer: ${peerHash}. Creating PeerConnection.`);
+                    // 1. Create the PeerConnection object immediately for all new peers.
+                    const pc = this.createPeerConnection(peerHash);
+                    this.peerConnections.set(peerHash, pc);
+
+                    // 2. Use the tie-breaker to decide which peer sends the offer.
+                    const shouldInitiate = this.deviceHash < peerHash;
+                    if (shouldInitiate) {
+                        console.log(`[${this.userName}] I am the initiator for peer ${peerHash}. Sending offer.`);
+                        this.sendOffer(peerHash);
+                    } else {
+                        console.log(`[${this.userName}] I am the receiver for peer ${peerHash}. Waiting for offer.`);
                     }
-                });
-                
-                // Clean up disconnected peers
-                this.peerConnections.forEach((pc, peerHash) => {
-                    if (!currentHashes.includes(peerHash)) {
-                        this.disconnectFromPeer(peerHash);
-                    }
-                });
-            }
+                }
+            });
+
+            // Clean up disconnected peers
+            this.peerConnections.forEach((pc, peerHash) => {
+                if (!currentHashes.includes(peerHash)) {
+                    this.disconnectFromPeer(peerHash);
+                }
+            });
         });
     }
     
