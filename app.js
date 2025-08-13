@@ -2893,11 +2893,7 @@ class PhoneCall {
         
         this.updateParticipantsDisplay();
         
-        // Update status based on participant count
-        if (participantCount > 1) {
-            this.updateStatus('Connected - Voice & Messages');
-            if (this.elements.statusDot) this.elements.statusDot.classList.add('connected');
-        }
+        // Status is now handled by updateConnectionStatus based on P2P state
     }
     
     updateParticipantsDisplay() {
@@ -3197,16 +3193,33 @@ class PhoneCall {
 
     updateConnectionStatus() {
         const connectedCount = this.connectedPeers.size;
+        const totalPeers = this.peerConnections.size;
         let status = 'Waiting for others...';
-        
-        if (connectedCount > 0) {
-            status = 'Connected - Voice & Messages';
-            if (this.elements.statusDot) this.elements.statusDot.classList.add('connected');
-        } else {
-            if (this.elements.statusDot) this.elements.statusDot.classList.remove('connected');
+        let statusType = 'info';
+
+        if (this.elements.statusDot) {
+            this.elements.statusDot.classList.remove('connected', 'failed');
+        }
+
+        if (totalPeers > 0) {
+            const allConnected = connectedCount === totalPeers && totalPeers > 0;
+            const hasFailed = Array.from(this.peerConnections.values()).some(pc => pc.connectionState === 'failed');
+
+            if (allConnected) {
+                status = 'P2P Connected - Voice & Messages Ready';
+                statusType = 'success';
+                if (this.elements.statusDot) this.elements.statusDot.classList.add('connected');
+            } else if (hasFailed) {
+                status = 'P2P Connection Failed';
+                statusType = 'error';
+                if (this.elements.statusDot) this.elements.statusDot.classList.add('failed');
+            } else {
+                status = `P2P Connecting... (${connectedCount}/${totalPeers})`;
+                statusType = 'info';
+            }
         }
         
-        this.updateStatus(status);
+        this.updateStatus(status, statusType);
     }
 
     updateStatus(status, type = 'info') {
