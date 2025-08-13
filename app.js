@@ -2743,8 +2743,6 @@ class PhoneCall {
 
             switch (type) {
                 case 'offer':
-                    if (!this.localStream) return;
-                    
                     // Validate offer payload
                     if (!payload.offer || !payload.offer.type || !payload.offer.sdp) {
                         console.warn(`[${this.userName}] Received invalid offer payload:`, payload);
