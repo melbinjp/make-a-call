@@ -1861,6 +1861,13 @@ button i {
     }
 }
 
+.btn-small {
+    width: auto;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
 .p2p-status {
     font-size: 12px;
     font-weight: 600;
@@ -2286,6 +2293,16 @@ select:focus-visible {
     align-items: center;
     margin-bottom: 1rem;
     position: relative;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.section-header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    justify-content: flex-end;
+    flex-grow: 1;
 }
 
 .group-actions {

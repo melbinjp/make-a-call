@@ -1168,10 +1168,9 @@ class PhoneCall {
         }
 
         try {
-            this.setupSignaling();
+            this.setupSignaling(true); // Pass true for isNewRoom
             this.showCallInterface();
             this.updateRoomTitle();
-            this.showNotification('Group created. Share the URL to invite others.', 'info');
             this.showNotification('Group created!', 'success');
         } catch (error) {
             console.error('Group creation failed:', sanitizeForLog(error.message));
@@ -1232,7 +1231,6 @@ class PhoneCall {
         try {
             this.setupSignaling();
             this.showCallInterface();
-            this.showNotification('Joined group', 'info');
             this.showNotification('Joined group!', 'success');
         } catch (error) {
             console.error('Join group failed:', sanitizeForLog(error.message));
@@ -2384,22 +2382,6 @@ class PhoneCall {
         });
         input.addEventListener('blur', () => endNameEdit(true));
     }
-    
-    updateRoomTitle() {
-        if (!this.elements.roomTitle || !this.elements.groupNameInUrl) return;
-        
-        // Format the room name nicely by capitalizing each word
-        const words = this.channel.split('-');
-        const displayName = words.map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-        
-        // Update the main title
-        this.elements.roomTitle.textContent = displayName;
-        
-        // Update the URL part
-        if (this.elements.groupNameInUrl) {
-            this.elements.groupNameInUrl.textContent = this.channel;
-        }
-    }
 
     generateUserIdentity() {
         const icons = ['🐱', '🐶', '🐻', '🐸', '🐧', '🐢', '🦊', '🐼', '🦁', '🐯'];
@@ -2679,10 +2661,10 @@ class PhoneCall {
         this.updateParticipantSpeakingState(this.deviceHash, isSpeaking);
     }
 
-    setupSignaling() {
+    setupSignaling(isNewRoom = false) {
         if (!firebaseEnabled || !database) {
             console.log('Using P2P-only mode');
-            this.setupP2POnlyMode();
+            this.setupP2POnlyMode(isNewRoom);
             return;
         }
         
@@ -3359,7 +3341,10 @@ class PhoneCall {
             }
         }
 
-        this.showNotification(status, statusType);
+        // Only show status notifications if there's an actual connection attempt or state change.
+        if (totalPeers > 0 || connectedCount > 0) {
+            this.showNotification(status, statusType);
+        }
         this.updateP2PStatus();
     }
 
@@ -4114,10 +4099,12 @@ class PhoneCall {
         }
     }
     
-    setupP2POnlyMode() {
+    setupP2POnlyMode(isNewRoom = false) {
         console.log('Setting up P2P-only mode');
         this.setupMessageListener();
-        this.showNotification('P2P room ready', 'info');
+        if (!isNewRoom) {
+            this.showNotification('P2P room ready', 'info');
+        }
     }
 
     logEvent(scope, msg, data = null, level = 'info') {
