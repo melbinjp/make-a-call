@@ -429,7 +429,7 @@ class PhoneCall {
         
         // Authorization check
         if (!this.userName || !validateInput(this.userName, 'text')) {
-            this.showNotification('Invalid user credentials', 'error');
+            this.showNotification('Invalid name. Please try again.', 'error');
             return;
         }
         
@@ -438,7 +438,7 @@ class PhoneCall {
             this.isCallActive = true;
             this.updateParticipantCallStatus();
             this.updateButtonStates();
-            this.updateStatus('Voice call active');
+            this.showNotification('Voice call active', 'info');
             this.showNotification('Call started', 'success');
         } catch (error) {
             console.error('Failed to start call:', sanitizeForLog(error.message));
@@ -447,7 +447,7 @@ class PhoneCall {
             } else if (error.name === 'NotFoundError') {
                 this.showNotification('No microphone found', 'error');
             } else {
-                this.showNotification('Call failed to start', 'error');
+                this.showNotification('Could not start call. Please check microphone permissions.', 'error');
             }
         }
     }
@@ -668,7 +668,7 @@ class PhoneCall {
             this.isCallActive = false;
             this.updateParticipantCallStatus();
             this.updateButtonStates();
-            this.updateStatus('Connected to room');
+            this.showNotification('Connected to group', 'info');
             this.showNotification('Call ended', 'info');
         } else {
             this.leaveRoom();
@@ -708,10 +708,6 @@ class PhoneCall {
         
         this.showCallSetup();
         this.resetState();
-    }
-    
-    updateStatus(status, type = 'info') {
-        this.showNotification(status, type);
     }
     
     updateRoomTitle(newName = null) {
@@ -765,7 +761,7 @@ class PhoneCall {
             this.userName = sanitizeInput(userName);
             this.setupSignaling();
             this.showCallInterface();
-            this.updateStatus('Connected to group');
+            this.showNotification('Connected to group', 'info');
             this.showNotification('Welcome to the group!', 'success');
         } else if (result === 'denied') {
             this.showNotification('Access denied by group members', 'error');
@@ -979,7 +975,7 @@ class PhoneCall {
                 this.userName = userName + ' (Direct)';
                 this.channel = channelId;
                 
-                this.showNotification('Serverless P2P detected!', 'success');
+                this.showNotification('Direct connection request received!', 'success');
                 this.showAnswerDialog(contactId);
                 return;
             } catch (e) {
@@ -1087,7 +1083,7 @@ class PhoneCall {
             this.setupSignaling();
             this.showCallInterface();
             this.updateRoomTitle();
-            this.updateStatus('Group created - Share to invite others');
+            this.showNotification('Group created. Share the URL to invite others.', 'info');
             this.showNotification('Group created!', 'success');
         } catch (error) {
             console.error('Group creation failed:', sanitizeForLog(error.message));
@@ -1148,11 +1144,11 @@ class PhoneCall {
         try {
             this.setupSignaling();
             this.showCallInterface();
-            this.updateStatus('Joined group');
+            this.showNotification('Joined group', 'info');
             this.showNotification('Joined group!', 'success');
         } catch (error) {
             console.error('Join group failed:', sanitizeForLog(error.message));
-            this.showNotification('Failed to join group', 'error');
+            this.showNotification('Could not join group. Please check the code and your connection.', 'error');
         }
     }
     
@@ -1458,7 +1454,7 @@ class PhoneCall {
         try {
             await navigator.clipboard.writeText(url);
             this.elements.copyMyP2PBtn.textContent = '✓ Copied!';
-            this.showNotification('P2P URL copied - Share with others!', 'success');
+            this.showNotification('Direct connect URL copied. Share it with a friend!', 'success');
             
             setTimeout(() => {
                 this.elements.copyMyP2PBtn.textContent = 'Copy My URL';
@@ -1559,7 +1555,7 @@ class PhoneCall {
         try {
             await navigator.clipboard.writeText(groupUrl);
             this.elements.copyBtn.textContent = '✓';
-            this.showNotification('Group URL copied!', 'success');
+            this.showNotification('Group invite URL copied!', 'success');
             
             setTimeout(() => {
                 this.elements.copyBtn.textContent = '📋';
@@ -2178,7 +2174,7 @@ class PhoneCall {
             this.elements.historyList.innerHTML = '';
             
             if (rooms.length === 0) {
-                this.elements.historyList.innerHTML = '<div class="history-item">No previous groups</div>';
+                this.elements.historyList.innerHTML = '<div class="history-item">No recent groups found.</div>';
                 return;
             }
             
@@ -2201,7 +2197,7 @@ class PhoneCall {
             });
         } catch (e) {
             console.warn('Failed to load chat history:', e);
-            this.elements.historyList.innerHTML = '<div class="history-item">History unavailable</div>';
+            this.elements.historyList.innerHTML = '<div class="history-item">Could not load group history.</div>';
         }
     }
     
@@ -2361,7 +2357,7 @@ class PhoneCall {
                 ]);
                 
                 if (reconnectSuccess && this.connectedPeers.size > 0) {
-                    this.updateStatus('P2P network restored');
+                    this.showNotification('P2P network restored', 'info');
                     this.showNotification('Reconnected to persistent network!', 'success');
                     return;
                 }
@@ -2407,7 +2403,7 @@ class PhoneCall {
             this.setupSignaling();
             this.setupAccessRequestListener();
             this.showCallInterface();
-            this.updateStatus('Connected to group');
+            this.showNotification('Connected to group', 'info');
             
             // Generate share URL for existing group
             this.generateShareUrl();
@@ -3218,13 +3214,8 @@ class PhoneCall {
                 statusType = 'info';
             }
         }
-        
-        this.updateStatus(status, statusType);
-    }
 
-    updateStatus(status, type = 'info') {
-        // This is a duplicate of showNotification, let's consolidate
-        this.showNotification(status, type);
+        this.showNotification(status, statusType);
     }
 
     showCallInterface() {
@@ -3370,7 +3361,7 @@ class PhoneCall {
     async createP2PRoom() {
         // Create P2P-only room using hash system
         this.showCallInterface();
-        this.updateStatus('P2P Room created - Share link to invite others');
+        this.showNotification('Direct Group Created. Share the link to invite others.', 'info');
         this.generateShareUrl();
         this.elements.shareSection.style.display = 'block';
         this.showNotification('P2P Room created - No server needed!', 'success');
@@ -3493,7 +3484,6 @@ class PhoneCall {
         this.channel = `contact-${contact.deviceHash.substring(0, 8)}`;
         
         this.showCallInterface();
-        this.updateStatus(`Connecting to ${contact.alias}`);
         this.showNotification(`Connecting to ${contact.alias}`, 'info');
     }
     
@@ -3520,7 +3510,7 @@ class PhoneCall {
             }
             labels[0].classList.add('active');
             labels[1].classList.remove('active');
-            this.showNotification('P2P-only mode enabled', 'info');
+            this.showNotification('Direct Connection Mode: Only P2P links will work.', 'info');
         } else {
             // Switch to cloud assisted
             toggle.classList.add('cloud-mode');
@@ -3528,7 +3518,7 @@ class PhoneCall {
             database = initializeFirebase();
             labels[0].classList.remove('active');
             labels[1].classList.add('active');
-            this.showNotification('Cloud-assisted mode enabled', 'info');
+            this.showNotification('Group Mode: Connect easily with group codes.', 'info');
         }
     }
     
@@ -3685,7 +3675,7 @@ class PhoneCall {
                 
                 this.closeModal();
                 this.showCallInterface();
-                this.updateStatus(`P2P connection with ${userName}`);
+                this.showNotification(`P2P connection with ${userName}`, 'info');
                 this.showNotification('P2P connection established!', 'success');
             } else {
                 this.showNotification('Invalid P2P URL', 'error');
@@ -3987,7 +3977,7 @@ class PhoneCall {
     setupP2POnlyMode() {
         console.log('Setting up P2P-only mode');
         this.setupMessageListener();
-        this.updateStatus('P2P room ready');
+        this.showNotification('P2P room ready', 'info');
     }
     
     validateSystem() {
