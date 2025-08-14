@@ -104,6 +104,7 @@ function initializeFirebase() {
         database.goOnline();
         firebaseEnabled = true;
         isConnectedToFirebase = true;
+        this.logEvent('Firebase', 'Initialized and connected.');
         console.log('✅ Firebase initialized');
         
         // Disconnect is now handled intelligently based on P2P connection state
@@ -121,6 +122,7 @@ function scheduleFirebaseDisconnect() {
     // Disconnect after 30 seconds of setup completion
     connectionTimeout = setTimeout(() => {
         if (isConnectedToFirebase && database) {
+                this.logEvent('Firebase', 'Auto-disconnecting to conserve resources.');
             console.log('🔌 Auto-disconnecting Firebase to free connection slot');
             database.goOffline();
             isConnectedToFirebase = false;
@@ -130,6 +132,7 @@ function scheduleFirebaseDisconnect() {
 
 function reconnectFirebaseTemporarily() {
     if (!isConnectedToFirebase && database) {
+        this.logEvent('Firebase', 'Temporarily reconnecting for signaling operation.');
         console.log('🔌 Temporarily reconnecting Firebase');
         database.goOnline();
         isConnectedToFirebase = true;
@@ -168,6 +171,13 @@ class PhoneCall {
             this.pendingApprovals = new Map();
             this.contactAliases = {};
             this.myAlias = 'me';
+            this.peerConnectionStates = new Map();
+            this.iceCandidateQueue = new Map();
+            this.logBuffer = [];
+            this.isSafari = navigator.vendor && navigator.vendor.indexOf('Apple') > -1 &&
+                            navigator.userAgent &&
+                            !navigator.userAgent.match('CriOS') &&
+                            !navigator.userAgent.match('FxiOS');
             this.initializeContactAliases();
             
             this.initializeElements();
@@ -223,6 +233,10 @@ class PhoneCall {
     }
 
     setupEventListeners() {
+        if (this.isSafari) {
+            this.elements.callSetup.innerHTML = '<p style="padding: 20px; text-align: center;">Safari is not fully supported for WebRTC features. Please use Chrome or Firefox for the best experience.</p>';
+            return; // Don't set up any other listeners
+        }
         // Core required elements
         if (this.elements.createRoomBtn) this.elements.createRoomBtn.addEventListener('click', () => this.createRoom());
         if (this.elements.joinRoomBtn) this.elements.joinRoomBtn.addEventListener('click', () => this.showJoinModal());
@@ -266,6 +280,24 @@ class PhoneCall {
         if (this.elements.groupMenuBtn) this.elements.groupMenuBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             this.toggleGroupSidebar();
+        });
+
+        // Connection Log buttons
+        const copyLogBtn = document.getElementById('copyLogBtn');
+        if (copyLogBtn) copyLogBtn.addEventListener('click', () => this.copyLog());
+        const downloadLogBtn = document.getElementById('downloadLogBtn');
+        if (downloadLogBtn) downloadLogBtn.addEventListener('click', () => this.downloadLog());
+        const snapshotStatsBtn = document.getElementById('snapshotStatsBtn');
+        if (snapshotStatsBtn) snapshotStatsBtn.addEventListener('click', () => this.snapshotStats());
+
+        const filterBtns = document.querySelectorAll('.log-filter-btn');
+        filterBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const filter = btn.dataset.filter;
+                this.filterLog(filter);
+                filterBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            });
         });
         
         if (this.elements.messageInput) {
@@ -433,6 +465,7 @@ class PhoneCall {
             return;
         }
         
+        this.logEvent('Audio', 'Test Tone initiated.');
         try {
             await this.getUserMedia();
             this.isCallActive = true;
@@ -832,10 +865,14 @@ class PhoneCall {
         pc.onicecandidate = (event) => {
             try {
                 if (event.candidate) {
+                    this.logEvent('ICE', `Candidate gathered for ${peerId}`, event.candidate.candidate);
                     // Send any non-null candidate, converted to a plain object for Firebase
                     this.sendSignal('ice-candidate', { candidate: event.candidate.toJSON(), targetPeer: peerId });
+                } else {
+                    this.logEvent('ICE', `All candidates gathered for ${peerId}.`);
                 }
             } catch (error) {
+                this.logEvent('ICE', `Error gathering candidate for ${peerId}: ${error.message}`, null, 'error');
                 console.error('ICE candidate error:', sanitizeForLog(error.message));
             }
         };
@@ -854,28 +891,60 @@ class PhoneCall {
 
         // Detailed Logging for WebRTC State
         pc.onsignalingstatechange = () => {
+            this.logEvent('Signaling', `State changed for ${peerId}: ${pc.signalingState}`);
             console.log(`[${this.userName}] WebRTC signaling state change for peer ${peerId}: ${pc.signalingState}`);
         };
 
         pc.oniceconnectionstatechange = () => {
+            this.logEvent('ICE', `Connection state changed for ${peerId}: ${pc.iceConnectionState}`);
             console.log(`[${this.userName}] WebRTC ICE connection state change for peer ${peerId}: ${pc.iceConnectionState}`);
         };
         
+        pc.onnegotiationneeded = async () => {
+            try {
+                const state = this.peerConnectionStates.get(peerId);
+                // Only impolite peer sends offer on negotiationneeded
+                if (state && !state.polite && !state.isMakingOffer && pc.signalingState === 'stable') {
+                    console.log(`[${this.userName}] onnegotiationneeded triggered for peer ${peerId}, sending offer.`);
+                    await this.sendOffer(peerId);
+                }
+            } catch (err) {
+                console.error(`Error during onnegotiationneeded for peer ${peerId}:`, err);
+            }
+        };
+
         pc.onconnectionstatechange = () => {
+            this.logEvent('Connection', `State changed for ${peerId}: ${pc.connectionState}`);
             console.log(`[${this.userName}] WebRTC connection state change for peer ${peerId}: ${pc.connectionState}`);
+            const state = this.peerConnectionStates.get(peerId);
+
             if (pc.connectionState === 'connected') {
+                if (state) state.iceRestarted = false; // Reset on successful connection
                 this.connectedPeers.add(peerId);
                 // Once a P2P connection is established, we can schedule a disconnect from Firebase
                 if (this.connectedPeers.size > 0) {
                     console.log('🕸️ P2P mesh active, scheduling Firebase disconnect.');
                     scheduleFirebaseDisconnect();
                 }
-            } else if (pc.connectionState === 'failed' || pc.connectionState === 'closed' || pc.connectionState === 'disconnected') {
+                this.updateModeBadge(pc);
+            } else if (pc.connectionState === 'failed') {
+                if (state && !state.iceRestarted) {
+                    this.logEvent('ICE', `Connection to ${peerId} failed. Attempting to restart ICE.`, null, 'warning');
+                    state.iceRestarted = true;
+                    pc.restartIce();
+                } else if (state) {
+                    this.logEvent('ICE', `ICE restart failed for ${peerId}. Attempting full renegotiation.`, null, 'error');
+                    if (!state.polite) {
+                        this.sendOffer(peerId);
+                    }
+                }
+            } else if (pc.connectionState === 'closed' || pc.connectionState === 'disconnected') {
                 this.connectedPeers.delete(peerId);
                 this.removeRemoteAudio(peerId);
                 this.dataChannels.delete(peerId);
                 // If all P2P connections are lost, reconnect to Firebase to find other peers
-                if (this.connectedPeers.size === 0) {
+                if (this.connectedPeers.size === 0 && this.channel) {
+                    this.logEvent('Firebase', 'All P2P connections lost, reconnecting to signaling server.');
                     console.log('🕸️ P2P mesh lost, reconnecting to Firebase.');
                     reconnectFirebaseTemporarily();
                 }
@@ -890,16 +959,35 @@ class PhoneCall {
         
         dataChannel.onopen = () => {
             try {
+                this.logEvent('DataChannel', `Channel opened to ${peerId}`);
                 console.log('DataChannel opened with', sanitizeForLog(peerId));
                 this.dataChannels.set(peerId, dataChannel);
                 this.exchangeReconnectInfo(peerId, dataChannel);
             } catch (error) {
+                this.logEvent('DataChannel', `Error on open for ${peerId}: ${error.message}`, null, 'error');
                 console.error('DataChannel open error:', sanitizeForLog(error.message));
             }
         };
         
         dataChannel.onmessage = (event) => {
+            this.logEvent('DataChannel', `Message received from ${peerId}`);
             this.handleP2PMessage(event.data, peerId);
+        };
+
+        dataChannel.onclose = () => {
+            this.logEvent('DataChannel', `Channel to ${peerId} closed.`);
+            console.log(`DataChannel to ${peerId} closed.`);
+        };
+
+        dataChannel.onerror = (error) => {
+            this.logEvent('DataChannel', `Channel to ${peerId} error: ${error.message}`, null, 'error');
+            console.error(`DataChannel to ${peerId} error:`, error);
+            // If a datachannel errors, it's a good sign the connection is unstable.
+            // Let's trigger a renegotiation to try and fix it.
+            const state = this.peerConnectionStates.get(peerId);
+            if (state && !state.polite) {
+                this.sendOffer(peerId);
+            }
         };
         
         pc.ondatachannel = (event) => {
@@ -967,7 +1055,7 @@ class PhoneCall {
         // Handle serverless P2P connection
         if (p2pData) {
             try {
-                const decoded = atob(p2pData);
+                const decoded = atob(decodeURIComponent(p2pData));
                 const parts = decoded.split('|');
                 const [userName, deviceHash, channelId, contactId] = parts;
                 
@@ -1254,37 +1342,29 @@ class PhoneCall {
             }
             return;
         }
-        
+
         try {
             const sanitizedMessage = sanitizeInput(message);
-            const encryptedText = await this.encryptMessage(sanitizedMessage);
+            // WebRTC DataChannels are already encrypted via DTLS. App-layer encryption is removed for reliability.
             const messageData = {
-                text: encryptedText,
+                text: sanitizedMessage, // Send plaintext
                 sender: this.userName,
                 senderHash: this.deviceHash,
                 timestamp: Date.now(),
                 id: Math.random().toString(36).substring(2, 15)
             };
-            
+
             // Display locally
-            this.displayMessage({
-                text: sanitizedMessage,
-                sender: this.userName,
-                senderHash: this.deviceHash,
-                timestamp: messageData.timestamp,
-                id: messageData.id
-            });
-            
-            // Save to local storage
+            this.displayMessage(messageData);
+
+            // Save to local storage (still encrypted locally for at-rest protection)
+            const encryptedText = await this.encryptMessage(sanitizedMessage);
             this.saveMessageToHistory({
-                text: sanitizedMessage,
-                sender: this.userName,
-                senderHash: this.deviceHash,
-                timestamp: messageData.timestamp,
-                id: messageData.id
+                ...messageData,
+                text: encryptedText, // Save encrypted version
             });
-            
-            // Send encrypted message via P2P DataChannels
+
+            // Send plaintext message via P2P DataChannels
             const messageStr = JSON.stringify(messageData);
             this.dataChannels.forEach((channel, peerId) => {
                 if (channel.readyState === 'open') {
@@ -1295,7 +1375,7 @@ class PhoneCall {
                     }
                 }
             });
-            
+
             this.elements.messageInput.value = '';
         } catch (error) {
             console.error('Send message failed:', sanitizeForLog(error.message));
@@ -1314,59 +1394,78 @@ class PhoneCall {
         const isOwnMessage = messageData.sender === this.userName;
         messageDiv.className = `message ${isOwnMessage ? 'own' : 'other'}`;
         
-        // Enhanced message with timestamp and status
         const time = new Date(messageData.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
         
-        // Use alias for display
         const senderAlias = isOwnMessage ? this.getContactAlias(this.deviceHash) : 
                            this.getContactAlias(messageData.senderHash) || messageData.sender;
+
+        const senderDiv = document.createElement('div');
+        senderDiv.className = 'message-sender';
+        senderDiv.textContent = this.escapeHtml(senderAlias);
+
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content';
+
+        const textDiv = document.createElement('div');
+        textDiv.className = 'message-text';
+        this.renderSanitizedText(textDiv, messageData.text); // Use textContent with linkification
+
+        const timeDiv = document.createElement('div');
+        timeDiv.className = 'message-time';
+        timeDiv.textContent = time;
         
-        messageDiv.innerHTML = `
-            ${!isOwnMessage ? `<div class="message-sender">${this.escapeHtml(senderAlias)}</div>` : ''}
-            <div class="message-content">
-                <div class="message-text">${this.processMessageText(messageData.text)}</div>
-                <div class="message-time">${time}</div>
-                <div class="message-actions">
-                    <button class="btn-reaction" data-message-id="${messageData.id}"><i class="far fa-smile"></i></button>
-                </div>
-            </div>
-            <div class="reactions" id="reactions-${messageData.id}"></div>
-        `;
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'message-actions';
+        actionsDiv.innerHTML = `<button class="btn-reaction" data-message-id="${messageData.id}"><i class="far fa-smile"></i></button>`;
+
+        contentDiv.appendChild(textDiv);
+        contentDiv.appendChild(timeDiv);
+        contentDiv.appendChild(actionsDiv);
+
+        if (!isOwnMessage) {
+            messageDiv.appendChild(senderDiv);
+        }
+        messageDiv.appendChild(contentDiv);
+
+        const reactionsDiv = document.createElement('div');
+        reactionsDiv.className = 'reactions';
+        reactionsDiv.id = `reactions-${messageData.id}`;
+        messageDiv.appendChild(reactionsDiv);
         
-        // Animate message in
-        messageDiv.style.opacity = '0';
-        messageDiv.style.transform = 'translateY(10px)';
         this.elements.messagesList.appendChild(messageDiv);
         
-        requestAnimationFrame(() => {
-            messageDiv.style.transition = 'all 0.3s ease';
-            messageDiv.style.opacity = '1';
-            messageDiv.style.transform = 'translateY(0)';
-        });
-        
-        // Smart scroll
         this.smartScroll();
         
-        // Save to history
-        this.saveMessageToHistory(messageData);
-        
-        // Sound notification for received messages
         if (!isOwnMessage) {
             this.playMessageSound();
         }
     }
     
-    processMessageText(text) {
-        // Enhanced text processing with emoji support and links
-        let processed = this.escapeHtml(text);
-        
-        // Auto-link URLs
-        processed = processed.replace(
-            /(https?:\/\/[^\s]+)/g,
-            '<a href="$1" target="_blank" rel="noopener">$1</a>'
-        );
-        
-        return processed;
+    renderSanitizedText(element, text) {
+        element.textContent = ''; // Clear previous content
+        const urlRegex = /(https?:\/\/[^\s]+)/g;
+        let lastIndex = 0;
+        let match;
+
+        while ((match = urlRegex.exec(text)) !== null) {
+            // Append text before the URL
+            if (match.index > lastIndex) {
+                element.appendChild(document.createTextNode(text.substring(lastIndex, match.index)));
+            }
+            // Create and append the link
+            const a = document.createElement('a');
+            a.href = match[0];
+            a.textContent = match[0];
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            element.appendChild(a);
+            lastIndex = match.index + match[0].length;
+        }
+
+        // Append any remaining text
+        if (lastIndex < text.length) {
+            element.appendChild(document.createTextNode(text.substring(lastIndex)));
+        }
     }
     
     smartScroll() {
@@ -1417,8 +1516,11 @@ class PhoneCall {
     
     generateMyP2PUrl() {
         const baseUrl = window.location.origin + window.location.pathname;
-        const p2pData = `${this.userName}|${this.deviceHash}|${Date.now()}`;
-        const p2pUrl = `${baseUrl}?p=${btoa(p2pData).replace(/[=+/]/g, '')}`;
+        // The channel ID is needed for signaling, even in a P2P context.
+        // If no channel, we can use a temporary one based on device hash.
+        const channelId = this.channel || `p2p-${this.deviceHash}`;
+        const p2pData = `${this.userName}|${this.deviceHash}|${channelId}|${this.contactId}`;
+        const p2pUrl = `${baseUrl}?p=${encodeURIComponent(btoa(p2pData))}`;
         
         if (this.elements.myP2PUrl) {
             this.elements.myP2PUrl.value = p2pUrl;
@@ -1718,24 +1820,29 @@ class PhoneCall {
                 return;
             }
             
-            const decryptedText = await this.decryptMessage(messageData.text);
-            
+            // Incoming messages from DataChannel are now plaintext.
+            const displayMessage = {
+                text: messageData.text, // Already plaintext
+                sender: messageData.sender,
+                senderHash: messageData.senderHash,
+                timestamp: messageData.timestamp,
+                id: messageData.id
+            };
+
             // Add contact if not exists
             if (messageData.senderHash) {
                 this.addContact(messageData.senderHash, messageData.sender);
                 this.saveContact(messageData.senderHash, messageData.sender);
             }
             
-            const displayMessage = {
-                text: decryptedText,
-                sender: messageData.sender,
-                senderHash: messageData.senderHash,
-                timestamp: messageData.timestamp,
-                id: messageData.id
-            };
-            
             this.displayMessage(displayMessage);
-            this.saveMessageToHistory(displayMessage);
+
+            // Save to local history (encrypted)
+            const encryptedText = await this.encryptMessage(messageData.text);
+            this.saveMessageToHistory({
+                ...displayMessage,
+                text: encryptedText,
+            });
         } catch (e) {
             console.error('Failed to handle P2P message:', e);
         }
@@ -1908,17 +2015,8 @@ class PhoneCall {
     }
     
     getPublicIceServers() {
-        // Adding more public STUN servers to increase NAT traversal success rate.
-        // The public TURN server is known to be unreliable, so improving STUN is the best bet.
-        return [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:stun2.l.google.com:19302' },
-            { urls: 'stun:stun.services.mozilla.com' },
-            { urls: 'stun:stun.stunprotocol.org:3478' },
-            { urls: 'stun:openrelay.metered.ca:80' },
-            { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' }
-        ];
+        // Return the centralized ICE server configuration.
+        return window.ICE_SERVERS || [];
     }
     
     enablePersistentConnection(peerId, channel) {
@@ -2645,18 +2743,15 @@ class PhoneCall {
             newHashes.forEach(peerHash => {
                 if (participants[peerHash] && !this.peerConnections.has(peerHash)) {
                     console.log(`[${this.userName}] Found new peer: ${peerHash}. Creating PeerConnection.`);
-                    // 1. Create the PeerConnection object immediately for all new peers.
+                    const polite = this.deviceHash > peerHash;
+                    this.peerConnectionStates.set(peerHash, { isMakingOffer: false, polite: polite });
+
                     const pc = this.createPeerConnection(peerHash);
                     this.peerConnections.set(peerHash, pc);
 
-                    // 2. Use the tie-breaker to decide which peer sends the offer.
-                    const shouldInitiate = this.deviceHash < peerHash;
-                    if (shouldInitiate) {
-                        console.log(`[${this.userName}] I am the initiator for peer ${peerHash}. Sending offer.`);
-                        this.sendOffer(peerHash);
-                    } else {
-                        console.log(`[${this.userName}] I am the receiver for peer ${peerHash}. Waiting for offer.`);
-                    }
+                    // The negotiationneeded event will trigger the offer from the impolite peer.
+                    // So we don't need to explicitly call sendOffer here anymore.
+                    console.log(`[${this.userName}] Peer connection created for ${peerHash}. I am ${polite ? 'polite' : 'impolite'}.`);
                 }
             });
 
@@ -2691,23 +2786,29 @@ class PhoneCall {
     }
 
     async sendOffer(peerId) {
+        const state = this.peerConnectionStates.get(peerId);
+        if (!state) return;
+
         try {
+            state.isMakingOffer = true;
             const pc = this.peerConnections.get(peerId);
             if (!pc) {
                 console.error(`[${this.userName}] No peer connection found for ${peerId} when trying to send offer.`);
                 return;
             }
 
-            if (pc.signalingState === 'stable') {
-                const offer = await pc.createOffer({ offerToReceiveAudio: true });
-                await pc.setLocalDescription(offer);
-                this.sendSignal('offer', { offer, targetPeer: peerId });
-                console.log(`[${this.userName}] 🚀 Sent offer to peer:`, encodeURIComponent(peerId));
-            } else {
-                console.warn(`[${this.userName}] Tried to send offer to ${peerId}, but signaling state is ${pc.signalingState}.`);
-            }
+            const offer = await pc.createOffer({ offerToReceiveAudio: true });
+            if (pc.signalingState !== 'stable') return;
+
+            await pc.setLocalDescription(offer);
+            this.sendSignal('offer', { offer, targetPeer: peerId });
+            console.log(`[${this.userName}] 🚀 Sent offer to peer:`, encodeURIComponent(peerId));
         } catch (error) {
             console.error(`[${this.userName}] Error creating offer for peer:`, encodeURIComponent(peerId), error.message || error);
+        } finally {
+            if (state) {
+                state.isMakingOffer = false;
+            }
         }
     }
 
@@ -2751,12 +2852,31 @@ class PhoneCall {
                         this.peerConnections.set(sender, pc);
                     }
                     
-                    if (pc.signalingState !== 'stable') {
-                        console.warn(`[${this.userName}] Received offer from ${sender} but signaling state is ${pc.signalingState}. Ignoring.`);
+                    const state = this.peerConnectionStates.get(sender);
+                    const offerCollision = state && state.isMakingOffer;
+                    const ignoreOffer = !state || (!state.polite && offerCollision);
+
+                    if (ignoreOffer) {
+                        console.warn(`[${this.userName}] Glare detected and ignoring offer from peer ${sender}. I am impolite.`);
                         return;
                     }
                     
+                    if (offerCollision) {
+                        // Polite peer should rollback its own offer
+                        await pc.setLocalDescription({ type: 'rollback' });
+                    }
+
                     await pc.setRemoteDescription(new RTCSessionDescription(payload.offer));
+
+                    if (this.iceCandidateQueue.has(sender)) {
+                        const queue = this.iceCandidateQueue.get(sender);
+                        this.logEvent('ICE', `Processing ${queue.length} queued candidates from ${sender}.`);
+                        for (const candidate of queue) {
+                            await pc.addIceCandidate(new RTCIceCandidate(candidate));
+                        }
+                        this.iceCandidateQueue.delete(sender);
+                    }
+
                     const answer = await pc.createAnswer({ offerToReceiveAudio: true });
                     await pc.setLocalDescription(answer);
                     this.sendSignal('answer', { answer, targetPeer: sender });
@@ -2773,6 +2893,16 @@ class PhoneCall {
                     const answerPc = this.peerConnections.get(sender);
                     if (answerPc && answerPc.signalingState === 'have-local-offer') {
                         await answerPc.setRemoteDescription(new RTCSessionDescription(payload.answer));
+
+                        if (this.iceCandidateQueue.has(sender)) {
+                            const queue = this.iceCandidateQueue.get(sender);
+                            this.logEvent('ICE', `Processing ${queue.length} queued candidates from ${sender}.`);
+                            for (const candidate of queue) {
+                                await answerPc.addIceCandidate(new RTCIceCandidate(candidate));
+                            }
+                            this.iceCandidateQueue.delete(sender);
+                        }
+
                         console.log(`[${this.userName}] ✅ Call established with peer:`, encodeURIComponent(sender));
                     } else {
                          console.warn(`[${this.userName}] Received answer from ${sender} but not in have-local-offer state.`);
@@ -2788,8 +2918,14 @@ class PhoneCall {
 
                     const candidatePc = this.peerConnections.get(sender);
                     if (candidatePc) {
-                         if (candidatePc.remoteDescription) {
+                        if (candidatePc.remoteDescription) {
                             await candidatePc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+                        } else {
+                            if (!this.iceCandidateQueue.has(sender)) {
+                                this.iceCandidateQueue.set(sender, []);
+                            }
+                            this.iceCandidateQueue.get(sender).push(payload.candidate);
+                            this.logEvent('ICE', `Queued candidate from ${sender} (remote description not set).`);
                         }
                     }
                     break;
@@ -2968,6 +3104,7 @@ class PhoneCall {
             return;
         }
         
+        this.logEvent('Audio', 'Test Tone initiated.');
         try {
             // Reuse AudioContext for better performance
             if (!this.audioContext) {
@@ -3010,6 +3147,7 @@ class PhoneCall {
                 });
                 
                 Promise.all(replacePromises).then(() => {
+                    this.logEvent('Audio', 'Test Tone playback started.');
                     console.log('🎵 Playing test audio');
                     this.showNotification('🎵 Test audio playing', 'info');
                     
@@ -3033,6 +3171,7 @@ class PhoneCall {
                     const voiceDetectionInterval = setInterval(checkVoiceActivity, 100);
                     
                     source.onended = () => {
+                        this.logEvent('Audio', 'Test Tone playback finished.');
                         clearInterval(voiceDetectionInterval);
                         this.peerConnections.forEach(pc => {
                             const sender = pc.getSenders().find(s => s.track?.kind === 'audio');
@@ -3116,7 +3255,12 @@ class PhoneCall {
     
     async activateAudio(audio, peerId) {
         try {
+            if (this.audioContext && this.audioContext.state === 'suspended') {
+                await this.audioContext.resume();
+                this.logEvent('Audio', 'AudioContext resumed by user gesture.');
+            }
             await audio.play();
+            this.logEvent('Audio', `Playback started for peer ${peerId}`);
             console.log('🔊 Audio activated for:', peerId);
         } catch (e) {
             // Require user interaction
@@ -3216,6 +3360,7 @@ class PhoneCall {
         }
 
         this.showNotification(status, statusType);
+        this.updateP2PStatus();
     }
 
     showCallInterface() {
@@ -3380,10 +3525,7 @@ class PhoneCall {
     async createServerlessConnection(contactId) {
         // Generate WebRTC offer for direct connection
         const pc = new RTCPeerConnection({
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:openrelay.metered.ca:80' }
-            ]
+            iceServers: this.getPublicIceServers()
         });
         
         // Handle ICE candidates
@@ -3667,21 +3809,21 @@ class PhoneCall {
             const urlObj = new URL(url);
             const p2pData = urlObj.searchParams.get('p');
             if (p2pData) {
-                const decoded = atob(p2pData);
-                const [userName, deviceHash] = decoded.split('|');
+                const decoded = atob(decodeURIComponent(p2pData));
+                const [userName, deviceHash, channelId, contactId] = decoded.split('|');
                 
                 this.userName = this.elements.nameInput.value.trim() || 'Anonymous';
-                this.channel = `p2p-${deviceHash.substring(0, 8)}`;
+                this.channel = channelId;
                 
-                this.closeModal();
-                this.showCallInterface();
-                this.showNotification(`P2P connection with ${userName}`, 'info');
-                this.showNotification('P2P connection established!', 'success');
+                this.closeModal('p2pModal');
+                this.showNotification(`Initiating connection to ${userName}`, 'info');
+                this.createServerlessConnection(contactId);
             } else {
-                this.showNotification('Invalid P2P URL', 'error');
+                this.showNotification('Invalid P2P URL: No data found.', 'error');
             }
         } catch (e) {
-            this.showNotification('Invalid URL format', 'error');
+            console.error("P2P URL processing error:", e);
+            this.showNotification('Invalid P2P URL. It might be malformed or expired.', 'error');
         }
     }
     
@@ -3809,17 +3951,15 @@ class PhoneCall {
             const offer = JSON.parse(offerText);
             
             const pc = new RTCPeerConnection({
-                iceServers: [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:openrelay.metered.ca:80' }
-                ]
+                iceServers: this.getPublicIceServers()
             });
             
             // Handle ICE candidates
             pc.onicecandidate = (event) => {
                 if (event.candidate) {
-                    console.log('ICE candidate generated for answer side');
-                    // In real implementation, send this to the other peer
+                    console.log('Answer-side ICE candidate generated, sending via signaling...');
+                    // Use the existing signaling channel to send the ICE candidate back to the offerer.
+                    this.sendSignal('ice-candidate', { candidate: event.candidate.toJSON(), targetPeer: contactId });
                 }
             };
             
@@ -3978,6 +4118,156 @@ class PhoneCall {
         console.log('Setting up P2P-only mode');
         this.setupMessageListener();
         this.showNotification('P2P room ready', 'info');
+    }
+
+    logEvent(scope, msg, data = null, level = 'info') {
+        const timestamp = new Date().toLocaleTimeString([], { hour12: false });
+        const logLine = document.createElement('div');
+        logLine.className = `log-line log-${level}`;
+
+        let dataStr = '';
+        if (data) {
+            try {
+                dataStr = JSON.stringify(data);
+            } catch (e) {
+                dataStr = '[Unserializable data]';
+            }
+        }
+
+        const text = `[${timestamp}][${scope}] ${msg} ${data ? dataStr : ''}`;
+        logLine.textContent = text;
+
+        const logContainer = document.getElementById('connectionLog');
+        if (logContainer) {
+            logContainer.appendChild(logLine);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        this.logBuffer.push(text);
+        if (this.logBuffer.length > 200) { // Limit buffer size
+            this.logBuffer.shift();
+        }
+    }
+
+    copyLog() {
+        navigator.clipboard.writeText(this.logBuffer.join('\\n'))
+            .then(() => this.showNotification('Log copied to clipboard!', 'success'))
+            .catch(() => this.showNotification('Failed to copy log.', 'error'));
+    }
+
+    downloadLog() {
+        const blob = new Blob([this.logBuffer.join('\\n')], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `p2p-call-log-${Date.now()}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    updateP2PStatus() {
+        const statusEl = document.getElementById('p2pStatus');
+        if (!statusEl) return;
+
+        const hasP2PConnection = this.connectedPeers.size > 0;
+        const isFirebaseOffline = !isConnectedToFirebase;
+
+        if (hasP2PConnection && isFirebaseOffline) {
+            statusEl.textContent = 'P2P Mesh Active';
+            statusEl.className = 'p2p-status active';
+            statusEl.style.display = 'inline-block';
+        } else if (!hasP2PConnection && this.channel && isConnectedToFirebase) {
+            statusEl.textContent = 'Reconnecting via Signaling...';
+            statusEl.className = 'p2p-status reconnecting';
+            statusEl.style.display = 'inline-block';
+        } else {
+            statusEl.textContent = '';
+            statusEl.style.display = 'none';
+        }
+    }
+
+    filterLog(filter) {
+        const logContainer = document.getElementById('connectionLog');
+        const lines = logContainer.children;
+        for (const line of lines) {
+            if (filter === 'all' || line.textContent.includes(`[${filter}]`)) {
+                line.style.display = 'block';
+            } else {
+                line.style.display = 'none';
+            }
+        }
+    }
+
+    async updateModeBadge(pc) {
+        const badge = document.getElementById('modeBadge');
+        if (!badge) return;
+
+        try {
+            const stats = await pc.getStats();
+            let isRelay = false;
+            stats.forEach(report => {
+                if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+                    const localCandidate = stats.get(report.localCandidateId);
+                    if (localCandidate && localCandidate.candidateType === 'relay') {
+                        isRelay = true;
+                    }
+                    const remoteCandidate = stats.get(report.remoteCandidateId);
+                    if (remoteCandidate && remoteCandidate.candidateType === 'relay') {
+                        isRelay = true;
+                    }
+                }
+            });
+
+            if (isRelay) {
+                badge.textContent = 'TURN Relay';
+                badge.className = 'mode-badge relay';
+            } else {
+                badge.textContent = 'P2P';
+                badge.className = 'mode-badge p2p';
+            }
+            badge.style.display = 'inline-block';
+        } catch (e) {
+            badge.style.display = 'none';
+        }
+    }
+
+    async snapshotStats() {
+        this.logEvent('Stats', '--- STATS SNAPSHOT ---');
+        for (const [peerId, pc] of this.peerConnections.entries()) {
+            try {
+                const stats = await pc.getStats();
+                let selectedPair;
+                stats.forEach(report => {
+                    if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+                        selectedPair = report;
+                    }
+                });
+
+                this.logEvent('Stats', `Stats for peer ${peerId}:`);
+                this.logEvent('Stats', `  - ICE Connection State: ${pc.iceConnectionState}`);
+                this.logEvent('Stats', `  - Connection State: ${pc.connectionState}`);
+                this.logEvent('Stats', `  - Signaling State: ${pc.signalingState}`);
+
+                if (selectedPair) {
+                    const localCandidate = stats.get(selectedPair.localCandidateId);
+                    const remoteCandidate = stats.get(selectedPair.remoteCandidateId);
+                    if (localCandidate && remoteCandidate) {
+                        this.logEvent('Stats', `  - Local: ${localCandidate.address}:${localCandidate.port} (${localCandidate.candidateType})`);
+                        this.logEvent('Stats', `  - Remote: ${remoteCandidate.address}:${remoteCandidate.port} (${remoteCandidate.candidateType})`);
+                        this.logEvent('Stats', `  - Transport: ${localCandidate.protocol}`);
+                        this.logEvent('Stats', `  - RTT: ${selectedPair.currentRoundTripTime}s`);
+                    }
+                } else {
+                     this.logEvent('Stats', '  - No successful candidate pair found.');
+                }
+
+            } catch (err) {
+                this.logEvent('Stats', `Could not get stats for peer ${peerId}: ${err.message}`, null, 'error');
+            }
+        }
+        this.logEvent('Stats', '--- END SNAPSHOT ---');
     }
     
     validateSystem() {

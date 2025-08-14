@@ -151,6 +151,24 @@
                         <button onclick="phoneCall.exportData()" class="btn-secondary"><i class="fas fa-file-export"></i> Export Data</button>
                         <button onclick="phoneCall.clearAllData()" class="btn-danger"><i class="fas fa-trash-alt"></i> Clear All Data</button>
                     </div>
+                    <div class="settings-section">
+                      <div class="section-header">
+                        <label>Connection Log</label>
+                        <div style="display:flex; gap:.5rem;">
+                          <button id="snapshotStatsBtn" class="btn-secondary">Snapshot Stats</button>
+                          <button id="copyLogBtn" class="btn-secondary">Copy Log</button>
+                          <button id="downloadLogBtn" class="btn-secondary">Download Log</button>
+                        </div>
+                      </div>
+                      <div class="log-filters">
+                        <button class="log-filter-btn active" data-filter="all">All</button>
+                        <button class="log-filter-btn" data-filter="ICE">ICE</button>
+                        <button class="log-filter-btn" data-filter="Signaling">SIG</button>
+                        <button class="log-filter-btn" data-filter="DataChannel">DC</button>
+                        <button class="log-filter-btn" data-filter="Media">MEDIA</button>
+                      </div>
+                      <div id="connectionLog" class="log-box"></div>
+                    </div>
                     <div class="modal-buttons">
                         <button onclick="phoneCall.closeModal('settingsModal')" class="btn-secondary">Close</button>
                     </div>
@@ -165,6 +183,8 @@
                         <h3 id="groupTitle" title="Click to rename group">Group</h3>
                         <button id="renameGroupBtn" class="btn-icon btn-edit-title"><i class="fas fa-pencil-alt"></i></button>
                     </div>
+                    <span id="p2pStatus" class="p2p-status"></span>
+                    <span id="modeBadge" class="mode-badge"></span>
                 </div>
                 <div class="group-actions">
                     <button id="groupMenuBtn" class="btn-icon"><i class="fas fa-ellipsis-v"></i></button>
@@ -198,7 +218,7 @@
                         <button id="speakerBtn" class="btn-call-secondary call-only" title="Speaker" style="display: none;">
                             <i class="fas fa-volume-up"></i>
                         </button>
-                        <button id="testAudioBtn" class="btn-call-secondary call-only" title="Test Audio" style="display: none;">
+                        <button id="testAudioBtn" class="btn-call-secondary call-only" title="Test Tone" style="display: none;">
                             <i class="fas fa-music"></i>
                         </button>
                         <button id="endCallBtn" class="btn-call-danger call-only" title="End Call" style="display: none;">
