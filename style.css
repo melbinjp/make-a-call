@@ -1861,6 +1861,78 @@ button i {
     }
 }
 
+.p2p-status {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 8px;
+    margin-left: 10px;
+    display: none; /* Hidden by default */
+}
+
+.p2p-status.active {
+    color: #fff;
+    background-color: #28a745;
+}
+
+.p2p-status.reconnecting {
+    color: #fff;
+    background-color: #ffc107;
+}
+
+.mode-badge {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 8px;
+    margin-left: 10px;
+    display: none; /* Hidden by default */
+}
+
+.mode-badge.p2p {
+    background-color: #28a745;
+    color: #fff;
+}
+
+.mode-badge.relay {
+    background-color: #ffc107;
+    color: #000;
+}
+
+.log-filters {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 5px;
+}
+
+.log-filter-btn {
+    padding: 2px 8px;
+    font-size: 10px;
+    border: 1px solid var(--border-color);
+    background: transparent;
+    color: var(--text-color);
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.log-filter-btn.active {
+    background: var(--primary-accent);
+    color: var(--bg-color);
+}
+
+.log-box {
+    height: 180px;
+    overflow-y: auto;
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    font-size: 12px;
+    background-color: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 8px;
+    color: var(--text-color-subtle);
+    margin-top: 1rem;
+}
+
 /* Landscape mobile optimization */
 @media (max-height: 500px) and (orientation: landscape) {
     header {
