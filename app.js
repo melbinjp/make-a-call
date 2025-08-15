@@ -104,7 +104,6 @@ function initializeFirebase() {
         database.goOnline();
         firebaseEnabled = true;
         isConnectedToFirebase = true;
-        this.logEvent('Firebase', 'Initialized and connected.');
         console.log('✅ Firebase initialized');
         
         // Disconnect is now handled intelligently based on P2P connection state
@@ -181,6 +180,13 @@ class PhoneCall {
             this.initializeContactAliases();
             
             this.initializeElements();
+
+            if (database && firebaseEnabled) {
+                this.logEvent('Firebase', 'Successfully initialized and connected.');
+            } else {
+                this.logEvent('Firebase', 'Running in P2P-only mode.', null, 'warning');
+            }
+
             this.generateUserIdentity();
             this.setupEventListeners();
             this.checkUrlParams();
