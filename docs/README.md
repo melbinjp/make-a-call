@@ -31,16 +31,17 @@ A WebRTC-based voice calling system that allows secure peer-to-peer calls throug
 6. Replace the config in `app.js`:
    ```javascript
    const firebaseConfig = {
-       apiKey: "your-actual-api-key",
-       authDomain: "your-project.firebaseapp.com",
-       databaseURL: "https://your-project-default-rtdb.firebaseio.com/",
-       projectId: "your-project-id"
+     apiKey: 'your-actual-api-key',
+     authDomain: 'your-project.firebaseapp.com',
+     databaseURL: 'https://your-project-default-rtdb.firebaseio.com/',
+     projectId: 'your-project-id',
    };
    ```
 
 ### 2. Deployment
 
 Since this is a static site, you can deploy it to:
+
 - **GitHub Pages**
 - **Netlify**
 - **Vercel**

@@ -2,27 +2,39 @@
   "rules": {
     "channels": {
       "$channelId": {
+        ".validate": "$channelId.matches(/^[a-z0-9\\-]+$/) && $channelId.length > 0 && $channelId.length <= 50",
         ".read": true,
-        ".write": true,
+        "name": {
+          ".write": "newData.isString() && newData.val().length > 0 && newData.val().length <= 50"
+        },
         "participants": {
-          ".read": true,
-          ".write": true
+          "$participantId": {
+            ".write": true,
+            ".validate": "newData.hasChildren(['joined', 'deviceHash', 'inCall', 'name', 'icon'])"
+          }
         },
         "signals": {
-          ".read": true,
+          ".indexOn": "timestamp",
           ".write": true,
-          ".indexOn": ["timestamp"]
+          "$signalId": {
+            ".validate": "newData.hasChildren(['type', 'payload', 'sender', 'timestamp']) && newData.child('timestamp').val() > (now - 120000)"
+          }
         },
         "introductions": {
-          ".read": true,
+          ".indexOn": "timestamp",
           ".write": true,
-          ".indexOn": ["timestamp"]
+          "$introductionId": {
+            ".validate": "newData.hasChildren(['type', 'newPeer', 'introducer', 'timestamp'])"
+          }
         },
         "joinRequests": {
-          ".read": true,
+          ".indexOn": "timestamp",
           ".write": true,
-          ".indexOn": ["timestamp"]
-        }
+          "$requestId": {
+            ".validate": "newData.hasChildren(['requester', 'deviceHash', 'timestamp', 'status'])"
+          }
+        },
+        "$other": { ".validate": false }
       }
     }
   }

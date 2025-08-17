@@ -7,7 +7,11 @@
     "start": "python -m http.server 8000",
     "dev": "python -m http.server 3000",
     "build": "echo 'Static site - no build needed'",
-    "deploy": "echo 'Upload files to your hosting service'"
+    "deploy": "echo 'Upload files to your hosting service'",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "test": "playwright test"
   },
   "keywords": [
     "webrtc",
@@ -21,7 +25,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/melbinjp/make-a-call.git"
+    "url": "git+https://github.com/melbinjp/make-a-call.git"
   },
   "homepage": "https://call.wecanuseai.com",
   "engines": {
@@ -32,5 +36,23 @@
     "last 2 versions",
     "not dead",
     "not ie 11"
-  ]
+  ],
+  "directories": {
+    "doc": "docs"
+  },
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/melbinjp/make-a-call/issues"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.10.2",
+    "@lhci/cli": "^0.15.1",
+    "@playwright/test": "^1.54.2",
+    "axe-core": "^4.10.3",
+    "dependency-check": "^4.1.0",
+    "eslint": "^8.57.1",
+    "globals": "^16.3.0",
+    "lighthouse": "^12.8.1",
+    "prettier": "^3.6.2"
+  }
 }

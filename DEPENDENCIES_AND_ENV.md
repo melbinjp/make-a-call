@@ -6,37 +6,39 @@
 
 The project uses `package.json` for metadata and scripts, but it does not declare any npm packages as dependencies.
 
-*   **`package.json`**: Present.
-*   **`package-lock.json`**: NOT PRESENT.
-*   **`yarn.lock`**: NOT PRESENT.
-*   **`requirements.txt`**: NOT PRESENT.
-*   **`Gemfile`**: NOT PRESENT.
+- **`package.json`**: Present.
+- **`package-lock.json`**: NOT PRESENT.
+- **`yarn.lock`**: NOT PRESENT.
+- **`requirements.txt`**: NOT PRESENT.
+- **`Gemfile`**: NOT PRESENT.
 
 ## Dependencies
 
 Dependencies are loaded directly in `index.html` from CDNs or local files, not managed via npm.
 
 ### CDN Dependencies
-*   **Firebase App**: `8.10.1`
-*   **Firebase Realtime Database**: `8.10.1`
-*   **Font Awesome**: `6.4.2`
-*   **Google Fonts (Inter)**: (version not specified in URL)
+
+- **Firebase App**: `8.10.1`
+- **Firebase Realtime Database**: `8.10.1`
+- **Font Awesome**: `6.4.2`
+- **Google Fonts (Inter)**: (version not specified in URL)
 
 ### Local (Vendored) Dependencies
-*   **`assets/qrcode.min.js`**: A minified library for QR code generation. The original version is not specified.
+
+- **`assets/qrcode.min.js`**: A minified library for QR code generation. The original version is not specified.
 
 ## Environment Targets
 
-*   **Node.js**: `>=14.0.0` (as specified in `package.json`'s `engines` field). This is likely for the development environment or tooling, as the application itself is client-side.
-*   **Python**: The local development server relies on Python being installed to use the `http.server` module. The specific version is not critical (Python 3 is assumed).
-*   **Browser**: The `browserslist` in `package.json` is:
-    ```
-    > 1%
-    last 2 versions
-    not dead
-    not ie 11
-    ```
-    This indicates the application targets modern browsers with good support for WebRTC and other recent APIs.
+- **Node.js**: `>=14.0.0` (as specified in `package.json`'s `engines` field). This is likely for the development environment or tooling, as the application itself is client-side.
+- **Python**: The local development server relies on Python being installed to use the `http.server` module. The specific version is not critical (Python 3 is assumed).
+- **Browser**: The `browserslist` in `package.json` is:
+  ```
+  > 1%
+  last 2 versions
+  not dead
+  not ie 11
+  ```
+  This indicates the application targets modern browsers with good support for WebRTC and other recent APIs.
 
 ## `npm audit`
 

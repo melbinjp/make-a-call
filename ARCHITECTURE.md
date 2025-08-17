@@ -41,6 +41,7 @@ The application is a client-side, single-page application (SPA) that runs entire
 **Entry Point**: The user loads `index.html`.
 
 **Rendering Pipeline**:
+
 1.  `index.html` defines the static DOM structure.
 2.  `style.css` provides the styling.
 3.  External assets (Google Fonts, Font Awesome) are loaded from CDNs.
@@ -54,32 +55,33 @@ The application is a client-side, single-page application (SPA) that runs entire
 **UI**: The UI is contained in `index.html` and styled by `style.css`. It's not component-based.
 
 **API**: The application uses two "APIs":
+
 1.  **WebRTC (Browser Native):** For the core peer-to-peer audio and data channels.
 2.  **Firebase Realtime Database API:** For signaling when not in "P2P Only" mode. This is used to exchange connection information between peers to establish the WebRTC connection.
 
 ## File Map
 
-*   **Entry Point & UI**:
-    *   `index.html`: The main and only HTML file, contains the entire UI structure.
-    *   `style.css`: The single stylesheet for the application.
-*   **Application Logic & State**:
-    *   `app.js`: The core of the application. It likely handles UI events, state management, WebRTC logic, and Firebase integration. The entire application state is managed within this file.
-*   **Configuration**:
-    *   `config.js`: Holds the Firebase configuration. This file is essential for the "Cloud Assisted" mode to work.
-*   **Service Worker**:
-    *   `sw.js`: Implements the service worker for PWA features (e.g., offline caching).
-    *   `manifest.json`: The PWA manifest file.
-*   **Libraries (Assets)**:
-    *   `assets/qrcode.min.js`: A third-party library for generating QR codes.
-*   **Backend (as a service)**:
-    *   `firebase-rules.json`: Security rules for the Firebase Realtime Database.
-*   **Documentation**:
-    *   `docs/`: Contains additional documentation.
-    *   `README.md`: Project overview and setup instructions.
+- **Entry Point & UI**:
+  - `index.html`: The main and only HTML file, contains the entire UI structure.
+  - `style.css`: The single stylesheet for the application.
+- **Application Logic & State**:
+  - `app.js`: The core of the application. It likely handles UI events, state management, WebRTC logic, and Firebase integration. The entire application state is managed within this file.
+- **Configuration**:
+  - `config.js`: Holds the Firebase configuration. This file is essential for the "Cloud Assisted" mode to work.
+- **Service Worker**:
+  - `sw.js`: Implements the service worker for PWA features (e.g., offline caching).
+  - `manifest.json`: The PWA manifest file.
+- **Libraries (Assets)**:
+  - `assets/qrcode.min.js`: A third-party library for generating QR codes.
+- **Backend (as a service)**:
+  - `firebase-rules.json`: Security rules for the Firebase Realtime Database.
+- **Documentation**:
+  - `docs/`: Contains additional documentation.
+  - `README.md`: Project overview and setup instructions.
 
 ## Runtime Assumptions
 
-*   **Modern Browser**: The application relies on modern web APIs like WebRTC and Service Workers. The `browserslist` in `package.json` suggests good support for recent versions of major browsers.
-*   **No WebGL or WASM**: There is no indication of WebGL or WebAssembly usage. [HIGH]
-*   **Firebase Backend**: For "Cloud Assisted" mode, a correctly configured Firebase project is required. [HIGH]
-*   **Internet Connection**: Required for loading the application and for communication (either to Firebase or directly between peers). The service worker might provide a basic offline shell of the app.
+- **Modern Browser**: The application relies on modern web APIs like WebRTC and Service Workers. The `browserslist` in `package.json` suggests good support for recent versions of major browsers.
+- **No WebGL or WASM**: There is no indication of WebGL or WebAssembly usage. [HIGH]
+- **Firebase Backend**: For "Cloud Assisted" mode, a correctly configured Firebase project is required. [HIGH]
+- **Internet Connection**: Required for loading the application and for communication (either to Firebase or directly between peers). The service worker might provide a basic offline shell of the app.

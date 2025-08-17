@@ -22,6 +22,7 @@ This repository contains a peer-to-peer (P2P) voice and text communication appli
 ## Confidence Labels
 
 Confidence labels per sentence are included in brackets, e.g., [HIGH], [MEDIUM], or [LOW].
-*   **[HIGH]**: Claim is backed by running the code or observing the live site's behavior directly.
-*   **[MEDIUM]**: Claim is based on plausible interpretation of the source code but could not be fully verified through live interaction.
-*   **[LOW]**: Claim is inferred from documentation or comments and could not be verified in code or live.
+
+- **[HIGH]**: Claim is backed by running the code or observing the live site's behavior directly.
+- **[MEDIUM]**: Claim is based on plausible interpretation of the source code but could not be fully verified through live interaction.
+- **[LOW]**: Claim is inferred from documentation or comments and could not be verified in code or live.

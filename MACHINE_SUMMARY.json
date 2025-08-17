@@ -4,9 +4,7 @@
   "date": "2025-08-17",
   "git_sha": null,
   "live_url": "https://call.wecanuseai.com",
-  "run_commands": [
-    "python -m http.server 8000"
-  ],
+  "run_commands": ["python -m http.server 8000"],
   "build_status": "succeeded",
   "top_3_issues": [
     "BUGS_AND_ISSUES/1_insecure_default_firebase_rules.md",

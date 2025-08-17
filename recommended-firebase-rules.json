@@ -24,7 +24,7 @@
           ".indexOn": "timestamp",
           ".write": true,
           "$introductionId": {
-             ".validate": "newData.hasChildren(['type', 'newPeer', 'introducer', 'timestamp'])"
+            ".validate": "newData.hasChildren(['type', 'newPeer', 'introducer', 'timestamp'])"
           }
         },
         "joinRequests": {

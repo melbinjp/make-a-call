@@ -5,6 +5,7 @@ WebRTC-based voice calling system for instant peer-to-peer calls worldwide.
 ## 🚀 Quick Setup
 
 1. **Add GitHub Secrets** (Settings → Secrets and variables → Actions):
+
    ```
    FIREBASE_API_KEY: your-api-key
    FIREBASE_AUTH_DOMAIN: your-project.firebaseapp.com

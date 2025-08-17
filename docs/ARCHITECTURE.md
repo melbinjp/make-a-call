@@ -7,21 +7,25 @@ Phone.WeCanUseAI.com uses a **mesh network topology** where each participant con
 ## Core Components
 
 ### 1. **Mesh Network Manager**
+
 - **Multiple Peer Connections**: `Map<peerId, RTCPeerConnection>`
 - **Dynamic Discovery**: Auto-connects to new participants
 - **Conflict Resolution**: Device hash determines connection initiator
 
 ### 2. **Firebase Signaling**
+
 - **Participant Registry**: Real-time participant list
 - **Signal Exchange**: WebRTC offer/answer/ICE candidates
 - **Auto Cleanup**: Signals removed after 30 seconds
 
 ### 3. **Audio System**
+
 - **Multiple Streams**: Separate audio element per participant
 - **Test Tone Generator**: Web Audio API synthetic audio
 - **Device Optimization**: Different handling for mobile/desktop
 
 ### 4. **Device Adaptation**
+
 - **Responsive UI**: Desktop/mobile/smartwatch layouts
 - **Performance Scaling**: Reduced animations on low-end devices
 - **Touch Optimization**: 44px minimum touch targets

@@ -58,13 +58,13 @@ Replace the firebaseConfig in `app.js` with your actual config:
 
 ```javascript
 const firebaseConfig = {
-    apiKey: "AIzaSyC...", // Your actual API key
-    authDomain: "your-project.firebaseapp.com",
-    databaseURL: "https://your-project-default-rtdb.firebaseio.com/",
-    projectId: "your-project-id",
-    storageBucket: "your-project.appspot.com",
-    messagingSenderId: "123456789",
-    appId: "1:123456789:web:abcdef123456"
+  apiKey: 'AIzaSyC...', // Your actual API key
+  authDomain: 'your-project.firebaseapp.com',
+  databaseURL: 'https://your-project-default-rtdb.firebaseio.com/',
+  projectId: 'your-project-id',
+  storageBucket: 'your-project.appspot.com',
+  messagingSenderId: '123456789',
+  appId: '1:123456789:web:abcdef123456',
 };
 ```
 
@@ -114,16 +114,19 @@ If you want user authentication:
 ## Troubleshooting
 
 **Database Permission Denied:**
+
 - Check your database rules
 - Ensure the rules are published
 - Verify the database URL in your config
 
 **Connection Issues:**
+
 - Ensure you're using HTTPS
 - Check browser console for errors
 - Verify Firebase config is correct
 
 **Audio Not Working:**
+
 - Grant microphone permissions
 - Use HTTPS (required for WebRTC)
 - Test in supported browsers only

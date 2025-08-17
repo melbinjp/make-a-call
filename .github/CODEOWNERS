@@ -1,0 +1,5 @@
+# This file designates default owners for code review.
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# By default, assign the primary repository maintainer for all changes.
+* @melbinjpaulose
