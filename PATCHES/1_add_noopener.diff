@@ -1,0 +1,14 @@
+--- a/app.js
++++ b/app.js
+@@ -818,8 +818,7 @@
+             // Create and append the link
+             const a = document.createElement('a');
+             a.href = match[0];
+-            a.textContent = match[0];
+             a.target = '_blank';
+-            a.rel = 'noopener noreferrer';
++            a.rel = 'noopener noreferrer'; // Prevent tab-napping
++            a.textContent = match[0];
+             element.appendChild(a);
+             lastIndex = match.index + match[0].length;
+         }
