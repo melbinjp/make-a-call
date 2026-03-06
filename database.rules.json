@@ -1,0 +1,39 @@
+{
+    "rules": {
+        "channels": {
+            "$channelId": {
+                ".read": true,
+                ".write": true,
+                "participants": {
+                    ".read": true,
+                    ".write": true
+                },
+                "signals": {
+                    ".read": true,
+                    ".write": true,
+                    ".indexOn": [
+                        "timestamp"
+                    ],
+                    "$signalId": {
+                        // New validation for our encrypted signals
+                        ".validate": "newData.hasChildren(['sender', 'timestamp'])"
+                    }
+                },
+                "introductions": {
+                    ".read": true,
+                    ".write": true,
+                    ".indexOn": [
+                        "timestamp"
+                    ]
+                },
+                "joinRequests": {
+                    ".read": true,
+                    ".write": true,
+                    ".indexOn": [
+                        "timestamp"
+                    ]
+                }
+            }
+        }
+    }
+}
