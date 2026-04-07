@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -16,9 +16,13 @@
     <title>call.wecanuseai.com</title>
     
     <!-- Simple favicon -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📞</text></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>ðŸ“ž</text></svg>">
     
     <link rel="stylesheet" href="style.css">
+    <script type="module">
+        import { prepare, layout } from 'https://esm.sh/@chenglou/pretext';
+        window.Pretext = { prepare, layout };
+    </script>
 </head>
 <body>
     <div class="container">
@@ -65,7 +69,7 @@
             <div class="room-header">
                 <h3 id="roomTitle" title="Click to rename">Room</h3>
                 <div class="room-status">
-                    <span id="callStatus">Connected</span> • 
+                    <span id="callStatus">Connected</span> â€¢ 
                     <span id="callerCount">1</span>/<span id="maxCallerCount">5</span> participants
                 </div>
             </div>
@@ -79,7 +83,7 @@
                     </div>
                 </div>
                 
-                <div class="advanced-tab" id="advancedTab">🔼 Advanced P2P</div>
+                <div class="advanced-tab" id="advancedTab">ðŸ”¼ Advanced P2P</div>
                 
                 <div class="advanced-content hidden" id="advancedContent">
                     <div class="input-group">
@@ -114,15 +118,15 @@
                     <div id="qrCodeContainer" class="qr-container"></div>
                     
                     <p class="p2p-info">
-                        <small>🔒 Direct peer-to-peer connection - no server required after initial handshake</small>
+                        <small>ðŸ”’ Direct peer-to-peer connection - no server required after initial handshake</small>
                     </p>
                 </div>
             </div>
 
             <div class="control-group">
-                <button id="startCallBtn" class="btn-control">📞 Start Call</button>
-                <button id="speakerBtn" class="btn-control">🔊 Speaker</button>
-                <button id="endCallBtn" class="btn-control danger">📵 End Call</button>
+                <button id="startCallBtn" class="btn-control">ðŸ“ž Start Call</button>
+                <button id="speakerBtn" class="btn-control">ðŸ”Š Speaker</button>
+                <button id="endCallBtn" class="btn-control danger">ðŸ“µ End Call</button>
             </div>
 
             <div class="message-section">
@@ -157,7 +161,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script src="config.js"></script>
-    <script src="app.js"></script>
+    <script type="module" src="src/js/main.js"></script>
     
     <!-- Haptic feedback for mobile -->
     <script>
@@ -170,5 +174,20 @@
             });
         }
     </script>
+    <footer class="wecanuseai-footer">
+        <a href="https://wecanuseai.com">Back to wecanuseai.com</a>
+    </footer>
+
+  <!-- Institutional Footer -->
+  <footer class="hub-footer">
+    <div class="footer-content">
+      <a href="https://wecanuseai.com" class="back-link">
+        <span class="icon">🏠</span> Back to WeCanUseAI.com
+      </a>
+      <div class="footer-info">
+        <span>Privacy-First</span> • <span>Zero-Friction</span> • <span>Jules Standard</span>
+      </div>
+    </div>
+  </footer>
 </body>
 </html>
