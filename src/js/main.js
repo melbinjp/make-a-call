@@ -83,6 +83,15 @@ class App {
         this.channel = room;
         this.maxCallers = parseInt(this.ui.elements.maxCallers.value);
 
+        // Establish membership before anything else touches this room -- the rules
+        // require it even to read the participant count below.
+        try {
+            await this.firebase.joinAsMember(room);
+        } catch (e) {
+            this.ui.showNotification('Could not connect. Please try again.', 'error');
+            return;
+        }
+
         // Check capacity
         const count = await this.firebase.getParticipantCount(room);
         if (this.maxCallers > 0 && count >= this.maxCallers) {
@@ -157,6 +166,7 @@ class App {
 
     leaveRoom() {
         this.firebase.removeParticipant(this.channel, this.userName);
+        this.firebase.leaveMembership(this.channel);
         this.webrtc.closeAll();
         this.ui.showCallSetup();
         this.channel = null;
