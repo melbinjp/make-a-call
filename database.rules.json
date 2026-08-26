@@ -2,36 +2,26 @@
     "rules": {
         "channels": {
             "$channelId": {
-                ".read": true,
-                ".write": true,
-                "participants": {
-                    ".read": true,
-                    ".write": true
+                ".read": "auth != null && data.child('members').child(auth.uid).exists()",
+                ".write": "auth != null && data.child('members').child(auth.uid).exists()",
+
+                "members": {
+                    "$uid": {
+                        ".write": "auth != null && auth.uid === $uid"
+                    }
                 },
+
                 "signals": {
-                    ".read": true,
-                    ".write": true,
-                    ".indexOn": [
-                        "timestamp"
-                    ],
+                    ".indexOn": ["timestamp"],
                     "$signalId": {
-                        // New validation for our encrypted signals
                         ".validate": "newData.hasChildren(['sender', 'timestamp'])"
                     }
                 },
                 "introductions": {
-                    ".read": true,
-                    ".write": true,
-                    ".indexOn": [
-                        "timestamp"
-                    ]
+                    ".indexOn": ["timestamp"]
                 },
                 "joinRequests": {
-                    ".read": true,
-                    ".write": true,
-                    ".indexOn": [
-                        "timestamp"
-                    ]
+                    ".indexOn": ["timestamp"]
                 }
             }
         }
